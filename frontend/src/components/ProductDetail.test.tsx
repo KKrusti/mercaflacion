@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProductDetail from './ProductDetail';
 import * as productsApi from '../api/products';
@@ -142,5 +142,87 @@ describe('ProductDetail', () => {
     render(<ProductDetail productId="1" onBack={vi.fn()} />);
     await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
     expect(document.querySelector('.price-change-badge')).not.toBeInTheDocument();
+  });
+
+  describe('ImageEditor', () => {
+    it('shows the edit image button after loading', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      expect(screen.getByRole('button', { name: 'Cambiar imagen del producto' })).toBeInTheDocument();
+    });
+
+    it('shows URL input when the edit button is clicked', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      expect(screen.getByLabelText('URL de imagen del producto')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Guardar imagen' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    });
+
+    it('hides the input when cancel is clicked', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(screen.queryByLabelText('URL de imagen del producto')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cambiar imagen del producto' })).toBeInTheDocument();
+    });
+
+    it('calls updateProductImage and closes input on success', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      vi.mocked(productsApi.updateProductImage).mockResolvedValue(undefined);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      fireEvent.change(screen.getByLabelText('URL de imagen del producto'), {
+        target: { value: 'https://prod.mercadona.com/img/leche.jpg' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar imagen' }));
+      await waitFor(() =>
+        expect(productsApi.updateProductImage).toHaveBeenCalledWith(
+          '1',
+          'https://prod.mercadona.com/img/leche.jpg',
+        ),
+      );
+      expect(screen.queryByLabelText('URL de imagen del producto')).not.toBeInTheDocument();
+    });
+
+    it('shows an error alert if saving fails', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      vi.mocked(productsApi.updateProductImage).mockRejectedValue(new Error('Network error'));
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      fireEvent.change(screen.getByLabelText('URL de imagen del producto'), {
+        target: { value: 'https://example.com/img.jpg' },
+      });
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar imagen' }));
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent('No se pudo guardar la imagen'),
+      );
+    });
+
+    it('shows validation error when saving with empty URL', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Guardar imagen' }));
+      expect(screen.getByRole('alert')).toHaveTextContent('Introduce una URL');
+      expect(productsApi.updateProductImage).not.toHaveBeenCalled();
+    });
+
+    it('closes input on Escape key', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByLabelText('URL de imagen del producto')).not.toBeInTheDocument();
+    });
   });
 });

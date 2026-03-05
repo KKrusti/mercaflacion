@@ -659,6 +659,122 @@ body {
   margin-top: 0.15rem;
 }
 
+/* ─── Image Editor ───────────────────────────────────────── */
+.detail-header__image-wrapper {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: flex-start;
+}
+
+.image-editor__trigger {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.image-editor__trigger:hover {
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.image-editor__trigger svg {
+  width: 14px;
+  height: 14px;
+}
+
+.image-editor--open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.image-editor__input {
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.image-editor__input:focus {
+  border-color: var(--color-border-focus);
+}
+
+.image-editor__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.image-editor__save {
+  padding: 0.35rem 0.9rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.image-editor__save:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.image-editor__save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.image-editor__cancel {
+  padding: 0.35rem 0.9rem;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.image-editor__cancel:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+.image-editor__cancel:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.image-editor__error {
+  font-size: 0.8rem;
+  color: #b91c1c;
+  margin: 0;
+}
+
 /* ─── Price Change Badge ─────────────────────────────────── */
 .price-change-badge {
   display: inline-flex;

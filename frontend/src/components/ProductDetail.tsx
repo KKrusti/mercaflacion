@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -9,7 +9,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { Product } from '../types';
-import { getProduct } from '../api/products';
+import { getProduct, updateProductImage } from '../api/products';
 import ProductImage from './ProductImage';
 
 interface ProductDetailProps {
@@ -58,6 +58,113 @@ function ArrowDownIcon() {
   );
 }
 
+function EditImageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+interface ImageEditorProps {
+  productId: string;
+  onSaved: (newUrl: string) => void;
+}
+
+function ImageEditor({ productId, onSaved }: ImageEditorProps) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function handleOpen() {
+    setOpen(true);
+    setUrl('');
+    setError(null);
+    // Focus input on next tick after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function handleCancel() {
+    setOpen(false);
+    setError(null);
+  }
+
+  async function handleSave() {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      setError('Introduce una URL de imagen válida');
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await updateProductImage(productId, trimmed);
+      onSaved(trimmed);
+      setOpen(false);
+    } catch {
+      setError('No se pudo guardar la imagen. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') handleCancel();
+  }
+
+  if (open) {
+    return (
+      <div className="image-editor image-editor--open">
+        <input
+          ref={inputRef}
+          className="image-editor__input"
+          type="url"
+          placeholder="https://prod.mercadona.com/..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={saving}
+          aria-label="URL de imagen del producto"
+        />
+        <div className="image-editor__actions">
+          <button
+            className="image-editor__save"
+            onClick={handleSave}
+            disabled={saving}
+            aria-label="Guardar imagen"
+          >
+            {saving ? 'Guardando…' : 'Guardar'}
+          </button>
+          <button
+            className="image-editor__cancel"
+            onClick={handleCancel}
+            disabled={saving}
+            aria-label="Cancelar"
+          >
+            Cancelar
+          </button>
+        </div>
+        {error && <p className="image-editor__error" role="alert">{error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      className="image-editor__trigger"
+      onClick={handleOpen}
+      aria-label="Cambiar imagen del producto"
+      title="Cambiar imagen"
+    >
+      <EditImageIcon />
+    </button>
+  );
+}
+
 interface PriceChangeBadgeProps {
   firstPrice: number;
   currentPrice: number;
@@ -91,13 +198,17 @@ function PriceChangeBadge({ firstPrice, currentPrice }: PriceChangeBadgeProps) {
 export default function ProductDetail({ productId, onBack }: ProductDetailProps) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     getProduct(productId)
       .then((data) => {
-        if (!cancelled) setProduct(data);
+        if (!cancelled) {
+          setProduct(data);
+          setImageUrl(data.imageUrl);
+        }
       })
       .catch((err) => { if (import.meta.env.DEV) console.error('Error loading product:', err); })
       .finally(() => {
@@ -161,12 +272,18 @@ export default function ProductDetail({ productId, onBack }: ProductDetailProps)
       </button>
 
       <div className="detail-header">
-        <ProductImage
-          productId={product.id}
-          imageUrl={product.imageUrl}
-          category={product.category}
-          size="lg"
-        />
+        <div className="detail-header__image-wrapper">
+          <ProductImage
+            productId={product.id}
+            imageUrl={imageUrl}
+            category={product.category}
+            size="lg"
+          />
+          <ImageEditor
+            productId={product.id}
+            onSaved={(newUrl) => setImageUrl(newUrl)}
+          />
+        </div>
         <div className="detail-header__info">
           <h2>{product.name}</h2>
           {product.category && (
