@@ -15,14 +15,15 @@ export default defineConfig({
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      // 'unsafe-inline' in style-src is required by Recharts (inline styles).
+      // Dev server CSP: 'unsafe-inline' required for Vite React Refresh injected scripts.
+      // In production, serve with a stricter CSP (removing 'unsafe-inline' from script-src).
       'Content-Security-Policy': [
         "default-src 'self'",
-        "script-src 'self'",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: https://prod-mercadona.imgix.net",
-        "connect-src 'self'",
-        "font-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "img-src 'self' data: https://prod-mercadona.imgix.net https://tienda.mercadona.es",
+        "connect-src 'self' ws://localhost:5173",
+        "font-src 'self' https://fonts.gstatic.com",
         "frame-ancestors 'none'",
       ].join('; '),
     },
