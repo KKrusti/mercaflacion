@@ -282,7 +282,7 @@ describe('uploadTickets', () => {
     expect(okItem?.ok).toBe(true);
     expect(failItem?.ok).toBe(false);
     if (failItem && !failItem.ok) {
-      // El mensaje debe ser el amigable, no el raw del servidor
+      // The message must be the friendly one, not the raw server message
       expect(failItem.error).toBe('El PDF no es un ticket de Mercadona válido');
     }
   });

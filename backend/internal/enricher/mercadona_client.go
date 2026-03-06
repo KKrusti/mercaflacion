@@ -98,6 +98,26 @@ type mercadonaProduct struct {
 	Thumbnail   string `json:"thumbnail"`
 }
 
+// mercadonaProductDetail holds the subset of fields returned by the
+// per-product detail endpoint (GET /api/products/{id}/?lang=es).
+type mercadonaProductDetail struct {
+	Thumbnail string `json:"thumbnail"`
+}
+
+// FetchProductThumbnail calls the Mercadona per-product API endpoint and
+// returns the thumbnail URL for the given numeric product ID.
+func (c *MercadonaClient) FetchProductThumbnail(ctx context.Context, productID string) (string, error) {
+	url := fmt.Sprintf("%s/products/%s/?lang=%s", c.baseURL, productID, mercadonaLang)
+	var resp mercadonaProductDetail
+	if err := c.getJSON(ctx, url, &resp); err != nil {
+		return "", fmt.Errorf("fetch product %s: %w", productID, err)
+	}
+	if resp.Thumbnail == "" {
+		return "", fmt.Errorf("product %s has no thumbnail in Mercadona catalogue", productID)
+	}
+	return resp.Thumbnail, nil
+}
+
 // ProductEntry holds the thumbnail URL and the keyword set for one Mercadona
 // product. The keyword set is used for fuzzy matching against local names.
 type ProductEntry struct {

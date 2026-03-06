@@ -72,18 +72,29 @@ interface ImageEditorProps {
   onSaved: (newUrl: string) => void;
 }
 
+// Matches Mercadona product page URLs, e.g.:
+//   https://tienda.mercadona.es/product/60722/chocolate-negro-85-cacao-hacendado-tableta
+const MERCADONA_PRODUCT_URL_RE = /^https?:\/\/tienda\.mercadona\.es\/products?\/\d+/i;
+
 function ImageEditor({ productId, onSaved }: ImageEditorProps) {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const trimmedUrl = url.trim();
+  const isMercadonaProductUrl = MERCADONA_PRODUCT_URL_RE.test(trimmedUrl);
+  // Show live preview only for direct image URLs, not for Mercadona product pages
+  // (which are HTML pages and would always fail the image load check).
+  const showPreview = trimmedUrl.startsWith('http') && !isMercadonaProductUrl;
 
   function handleOpen() {
     setOpen(true);
     setUrl('');
     setError(null);
-    // Focus input on next tick after render
+    setPreviewFailed(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -92,20 +103,32 @@ function ImageEditor({ productId, onSaved }: ImageEditorProps) {
     setError(null);
   }
 
+  function handleUrlChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setUrl(e.target.value);
+    setPreviewFailed(false);
+    setError(null);
+  }
+
   async function handleSave() {
-    const trimmed = url.trim();
-    if (!trimmed) {
+    if (!trimmedUrl) {
       setError('Introduce una URL de imagen válida');
+      return;
+    }
+    if (!isMercadonaProductUrl && previewFailed) {
+      setError('La imagen no pudo cargarse. Comprueba que la URL apunta directamente a un archivo de imagen.');
       return;
     }
     setSaving(true);
     setError(null);
     try {
-      await updateProductImage(productId, trimmed);
-      onSaved(trimmed);
+      // Backend resolves Mercadona product page URLs to the actual thumbnail URL.
+      // Always use the URL returned by the server, not the input.
+      const resolvedUrl = await updateProductImage(productId, trimmedUrl);
+      onSaved(resolvedUrl);
       setOpen(false);
-    } catch {
-      setError('No se pudo guardar la imagen. Inténtalo de nuevo.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg || 'No se pudo guardar la imagen. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -123,21 +146,42 @@ function ImageEditor({ productId, onSaved }: ImageEditorProps) {
           ref={inputRef}
           className="image-editor__input"
           type="url"
-          placeholder="https://prod.mercadona.com/..."
+          placeholder="https://tienda.mercadona.es/product/60722/... o URL directa de imagen"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={handleUrlChange}
           onKeyDown={handleKeyDown}
           disabled={saving}
           aria-label="URL de imagen del producto"
         />
+        {isMercadonaProductUrl && (
+          <p className="image-editor__mercadona-hint">
+            Enlace de Mercadona detectado — la imagen se obtendrá automáticamente del catálogo al guardar.
+          </p>
+        )}
+        {showPreview && (
+          <div className={`image-editor__preview${previewFailed ? ' image-editor__preview--error' : ''}`}>
+            {previewFailed ? (
+              <p className="image-editor__preview-msg">
+                La imagen no carga desde esta URL. Asegúrate de que es un enlace directo a la imagen (termina en .jpg, .png, .webp…) o pega la URL del producto de Mercadona.
+              </p>
+            ) : (
+              <img
+                src={trimmedUrl}
+                alt="Vista previa"
+                className="image-editor__preview-img"
+                onError={() => setPreviewFailed(true)}
+              />
+            )}
+          </div>
+        )}
         <div className="image-editor__actions">
           <button
             className="image-editor__save"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || (!isMercadonaProductUrl && previewFailed)}
             aria-label="Guardar imagen"
           >
-            {saving ? 'Guardando…' : 'Guardar'}
+            {saving ? 'Obteniendo imagen…' : 'Guardar'}
           </button>
           <button
             className="image-editor__cancel"

@@ -12,17 +12,20 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('el botón de subida de ticket es visible', async ({ page }) => {
+test('the ticket upload button is visible', async ({ page }) => {
   await expect(page.getByRole('button', { name: /subir ticket/i })).toBeVisible();
 });
 
-test('muestra progreso al subir un fichero y toast de éxito', async ({ page }) => {
+test('shows progress when uploading a file and a success toast', async ({ page }) => {
+  // Small delay so the progress panel is visible before the upload completes.
   await page.route('/api/tickets', (route) =>
-    route.fulfill({
-      status: 201,
-      contentType: 'application/json',
-      body: JSON.stringify({ invoiceNumber: '4144-017-284404', linesImported: 23 }),
-    }),
+    new Promise<void>((resolve) => setTimeout(resolve, 200)).then(() =>
+      route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({ invoiceNumber: '4144-017-284404', linesImported: 23 }),
+      }),
+    ),
   );
 
   // Write temp file
@@ -37,16 +40,16 @@ test('muestra progreso al subir un fichero y toast de éxito', async ({ page }) 
   await fileChooser.setFiles(tmpPath);
 
   // Progress panel should appear
-  await expect(page.locator('.upload-progress')).toBeVisible({ timeout: 3000 });
+  await expect(page.locator('.ticket-uploader__progress')).toBeVisible({ timeout: 3000 });
 
   // Toast should appear after completion
-  await expect(page.locator('.upload-toast')).toBeVisible({ timeout: 5000 });
-  await expect(page.locator('.upload-toast')).toContainText(/23/);
+  await expect(page.locator('.ticket-uploader__toast')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.ticket-uploader__toast')).toContainText(/23/);
 
   fs.unlinkSync(tmpPath);
 });
 
-test('muestra toast de error cuando el servidor rechaza el ticket', async ({ page }) => {
+test('shows an error toast when the server rejects the ticket', async ({ page }) => {
   await page.route('/api/tickets', (route) =>
     route.fulfill({ status: 422, body: 'Unprocessable entity' }),
   );
@@ -60,13 +63,13 @@ test('muestra toast de error cuando el servidor rechaza el ticket', async ({ pag
   ]);
   await fileChooser.setFiles(tmpPath);
 
-  await expect(page.locator('.upload-toast')).toBeVisible({ timeout: 5000 });
-  await expect(page.locator('.upload-toast')).toContainText(/válido|procesar/i);
+  await expect(page.locator('.ticket-uploader__toast')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.ticket-uploader__toast')).toContainText(/válido|procesar/i);
 
   fs.unlinkSync(tmpPath);
 });
 
-test('el toast desaparece al pulsar el botón de cerrar', async ({ page }) => {
+test('the toast disappears when the close button is pressed', async ({ page }) => {
   await page.route('/api/tickets', (route) =>
     route.fulfill({
       status: 201,
@@ -84,9 +87,9 @@ test('el toast desaparece al pulsar el botón de cerrar', async ({ page }) => {
   ]);
   await fileChooser.setFiles(tmpPath);
 
-  await expect(page.locator('.upload-toast')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('.ticket-uploader__toast')).toBeVisible({ timeout: 5000 });
   await page.getByRole('button', { name: /cerrar/i }).last().click();
-  await expect(page.locator('.upload-toast')).not.toBeVisible();
+  await expect(page.locator('.ticket-uploader__toast')).not.toBeVisible();
 
   fs.unlinkSync(tmpPath);
 });

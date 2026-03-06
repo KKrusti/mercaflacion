@@ -82,3 +82,14 @@ tasks:
     prompt: "¿Seguro? Se borrarán TODOS los datos de basket-cost.db. Esta acción no se puede deshacer."
     cmds:
       - go run ./cmd/dbreset/main.go -db basket-cost.db
+
+  kill:
+    desc: "Mata el proceso del backend que escucha en :8080"
+    cmds:
+      - fuser -k 8080/tcp || true
+
+  db:sanitize:
+    desc: "Detecta registros de precios duplicados (mismo ticket procesado dos veces) y ofrece borrarlos con confirmación"
+    dir: backend
+    cmds:
+      - go run ./cmd/dbsanitize/main.go -db basket-cost.db

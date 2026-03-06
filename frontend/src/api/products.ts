@@ -19,14 +19,14 @@ function authHeaders(): Record<string, string> {
   return {};
 }
 
-// Returns an AbortSignal that fires after `ms` milliseconds, plus a cleanup fn.
+// Returns an AbortSignal that fires after `ms` milliseconds, plus a cleanup function.
 function withTimeout(ms: number): { signal: AbortSignal; clear: () => void } {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   return { signal: controller.signal, clear: () => clearTimeout(timer) };
 }
 
-// Maps HTTP error status codes to user-friendly Spanish messages,
+// Maps HTTP error status codes to user-friendly messages,
 // avoiding exposure of internal server error details.
 function friendlyUploadError(status: number, body: string): string {
   if (status === 409 || body.toLowerCase().includes('already imported')) {
@@ -93,7 +93,7 @@ export async function uploadTicket(file: File): Promise<TicketUploadResult> {
 }
 
 // Uploads multiple files concurrently. Individual failures are captured in the
-// summary without aborting the batch. onProgress is called after each file.
+// summary without aborting the batch. onProgress is called after each file completes.
 export async function uploadTickets(
   files: File[],
   onProgress?: (done: number, total: number) => void,
@@ -123,7 +123,9 @@ export async function uploadTickets(
   };
 }
 
-export async function updateProductImage(id: string, imageUrl: string): Promise<void> {
+// Returns the resolved image URL saved by the backend (may differ from the
+// input when the backend auto-resolves a Mercadona product page URL).
+export async function updateProductImage(id: string, imageUrl: string): Promise<string> {
   const { signal, clear } = withTimeout(READ_TIMEOUT_MS);
   try {
     const res = await fetch(`${API_BASE}/products/${encodeURIComponent(id)}/image`, {
@@ -132,7 +134,12 @@ export async function updateProductImage(id: string, imageUrl: string): Promise<
       body: JSON.stringify({ imageUrl }),
       signal,
     });
-    if (!res.ok) throw new Error(`Update image failed: ${res.statusText}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(body || `Update image failed: ${res.statusText}`);
+    }
+    const data = await res.json() as { imageUrl: string };
+    return data.imageUrl;
   } finally {
     clear();
   }

@@ -7,15 +7,15 @@ import (
 	"basket-cost/internal/store"
 	"basket-cost/internal/ticket"
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"golang.org/x/time/rate"
 )
 
 const pdfMagic = "%PDF-"
@@ -32,33 +32,28 @@ func UserIDFromContext(r *http.Request) int64 {
 	return v
 }
 
+// reProductPage matches Mercadona product page URLs and captures the numeric product ID.
+// Example: https://tienda.mercadona.es/product/60722/chocolate-negro-...
+var reProductPage = regexp.MustCompile(`^https?://tienda\.mercadona\.es/products?/(\d+)`)
+
 // EnrichScheduler is the subset of *enricher.Enricher used by Handlers.
 // Defined as an interface so tests can inject a fake without network calls.
 type EnrichScheduler interface {
 	Schedule()
+	// FetchProductThumbnail resolves the direct image URL for a Mercadona
+	// numeric product ID (as found in tienda.mercadona.es product page URLs).
+	FetchProductThumbnail(ctx context.Context, productID string) (string, error)
 }
 
 type Handlers struct {
-	store         store.Store
-	importer      *ticket.Importer
-	enricher      EnrichScheduler
-	ticketLimiter *rate.Limiter
+	store    store.Store
+	importer *ticket.Importer
+	enricher EnrichScheduler
 }
 
 // New returns a Handlers instance. enr may be nil to skip post-import enrichment.
 func New(s store.Store, imp *ticket.Importer, enr EnrichScheduler) *Handlers {
-	return &Handlers{
-		store:         s,
-		importer:      imp,
-		enricher:      enr,
-		ticketLimiter: rate.NewLimiter(rate.Every(200*time.Millisecond), 10),
-	}
-}
-
-// NewWithLimiter creates a Handlers instance with a custom rate limiter.
-// Intended for testing; production code should use New.
-func NewWithLimiter(s store.Store, imp *ticket.Importer, enr EnrichScheduler, lim *rate.Limiter) *Handlers {
-	return &Handlers{store: s, importer: imp, enricher: enr, ticketLimiter: lim}
+	return &Handlers{store: s, importer: imp, enricher: enr}
 }
 
 // --- Auth handlers ---
@@ -256,6 +251,20 @@ func (h *Handlers) ProductImageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the user pasted a Mercadona product page URL instead of a direct image
+	// URL, resolve the thumbnail automatically using the Mercadona catalogue API.
+	if h.enricher != nil {
+		if m := reProductPage.FindStringSubmatch(req.ImageURL); len(m) == 2 {
+			resolved, err := h.enricher.FetchProductThumbnail(r.Context(), m[1])
+			if err != nil {
+				log.Printf("handlers: resolve mercadona thumbnail for %s: %v", m[1], err)
+				http.Error(w, "Unprocessable entity: could not resolve image from Mercadona product URL", http.StatusUnprocessableEntity)
+				return
+			}
+			req.ImageURL = resolved
+		}
+	}
+
 	product, err := h.store.GetProductByID(id)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -291,11 +300,6 @@ type analyticsResponse struct {
 func (h *Handlers) TicketHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if !h.ticketLimiter.Allow() {
-		http.Error(w, "Too many requests", http.StatusTooManyRequests)
 		return
 	}
 

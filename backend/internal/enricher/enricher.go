@@ -10,6 +10,12 @@ import (
 	"basket-cost/internal/store"
 )
 
+// FetchProductThumbnail returns the direct image URL for a Mercadona product
+// identified by its numeric catalogue ID (as it appears in tienda.mercadona.es URLs).
+func (e *Enricher) FetchProductThumbnail(ctx context.Context, productID string) (string, error) {
+	return e.client.FetchProductThumbnail(ctx, productID)
+}
+
 // minMatchScore is the minimum Dice coefficient required to accept a match.
 // Dice = 2·|A∩B| / (|A|+|B|), so it penalises both unmatched local keywords
 // (recall) and unmatched catalogue keywords (precision).

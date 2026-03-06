@@ -35,13 +35,13 @@ beforeEach(() => {
 });
 
 describe('Analytics', () => {
-  it('muestra un indicador de carga mientras se obtienen los datos', () => {
+  it('shows a loading indicator while data is being fetched', () => {
     vi.mocked(getAnalytics).mockReturnValue(new Promise(() => {}));
     render(<Analytics onSelectProduct={vi.fn()} />);
     expect(screen.getByRole('status', { hidden: true }) ?? document.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
 
-  it('renderiza las dos secciones de analítica con datos', async () => {
+  it('renders both analytics sections with data', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -51,7 +51,7 @@ describe('Analytics', () => {
     });
   });
 
-  it('muestra los productos más comprados con nombre y conteo', async () => {
+  it('shows the most purchased products with name and count', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -64,7 +64,7 @@ describe('Analytics', () => {
     expect(screen.getByText('3 veces')).toBeInTheDocument();
   });
 
-  it('muestra los productos con mayor subida de precio', async () => {
+  it('shows the products with the biggest price increase', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -77,7 +77,7 @@ describe('Analytics', () => {
     expect(screen.getByText('+50,0%')).toBeInTheDocument();
   });
 
-  it('muestra mensaje vacío si no hay datos de productos más comprados', async () => {
+  it('shows empty message when there is no most-purchased data', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(emptyAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -87,7 +87,7 @@ describe('Analytics', () => {
     });
   });
 
-  it('muestra mensaje de error si la API falla', async () => {
+  it('shows an error message when the API fails', async () => {
     vi.mocked(getAnalytics).mockRejectedValue(new Error('Network error'));
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -97,7 +97,7 @@ describe('Analytics', () => {
     });
   });
 
-  it('llama a onSelectProduct al hacer clic en un producto más comprado', async () => {
+  it('calls onSelectProduct when clicking a most-purchased product', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     const onSelectProduct = vi.fn();
     render(<Analytics onSelectProduct={onSelectProduct} />);
@@ -108,7 +108,7 @@ describe('Analytics', () => {
     expect(onSelectProduct).toHaveBeenCalledWith('leche');
   });
 
-  it('llama a onSelectProduct al hacer clic en un producto con mayor subida', async () => {
+  it('calls onSelectProduct when clicking a product with the biggest price increase', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     const onSelectProduct = vi.fn();
     render(<Analytics onSelectProduct={onSelectProduct} />);
@@ -119,18 +119,18 @@ describe('Analytics', () => {
     expect(onSelectProduct).toHaveBeenCalledWith('aceite');
   });
 
-  it('muestra el rango de precios (primer precio → precio actual) en subidas', async () => {
+  it('shows the price range (first price → current price) for increases', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
     await waitFor(() => screen.getByText('ACEITE OLIVA'));
 
-    // Los precios deben aparecer formateados en euros
+    // Prices must appear formatted in euros
     const priceTexts = screen.getAllByText(/3,00\s*€|6,00\s*€/);
     expect(priceTexts.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('muestra el rango de precios correcto para yogur', async () => {
+  it('shows the correct price range for yogurt', async () => {
     vi.mocked(getAnalytics).mockResolvedValue(mockAnalytics);
     render(<Analytics onSelectProduct={vi.fn()} />);
 
@@ -140,7 +140,7 @@ describe('Analytics', () => {
     expect(priceTexts.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('muestra "1 vez" en singular cuando purchaseCount es 1', async () => {
+  it('shows "1 vez" in singular when purchaseCount is 1', async () => {
     vi.mocked(getAnalytics).mockResolvedValue({
       mostPurchased: [
         { id: 'sal', name: 'SAL FINA', purchaseCount: 1, currentPrice: 0.45 },

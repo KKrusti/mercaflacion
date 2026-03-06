@@ -83,7 +83,7 @@ describe('SearchBar', () => {
     render(<SearchBar onSelectProduct={vi.fn()} />);
     await userEvent.type(screen.getByRole('textbox'), 'xyznonexistent');
     await waitFor(() =>
-      expect(screen.getByText(/no products found/i)).toBeInTheDocument()
+      expect(screen.getByText(/sin resultados/i)).toBeInTheDocument()
     );
   });
 

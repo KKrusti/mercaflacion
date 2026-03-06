@@ -19,7 +19,7 @@ beforeEach(() => {
 });
 
 describe('register', () => {
-  it('retorna token y user en caso de éxito', async () => {
+  it('returns token and user on success', async () => {
     mockFetch.mockResolvedValue(
       makeResponse(201, { token: 'tok123', userId: 1, username: 'carlos' }),
     );
@@ -28,26 +28,26 @@ describe('register', () => {
     expect(result.user).toEqual({ userId: 1, username: 'carlos' });
   });
 
-  it('lanza error localizado si el nombre de usuario ya existe (409)', async () => {
+  it('throws a localized error when the username already exists (409)', async () => {
     mockFetch.mockResolvedValue(makeResponse(409, 'Conflict'));
     await expect(register('carlos', 'securepassword')).rejects.toThrow(
       'El nombre de usuario ya está en uso',
     );
   });
 
-  it('lanza error localizado si los datos son inválidos (400)', async () => {
+  it('throws a localized error when the data is invalid (400)', async () => {
     mockFetch.mockResolvedValue(makeResponse(400, 'Bad request: username must be at least 3 characters'));
     await expect(register('ab', 'securepassword')).rejects.toThrow(
       'Bad request: username must be at least 3 characters',
     );
   });
 
-  it('lanza error genérico en error de servidor (500)', async () => {
+  it('throws a generic error on server error (500)', async () => {
     mockFetch.mockResolvedValue(makeResponse(500, 'Internal server error'));
     await expect(register('carlos', 'securepassword')).rejects.toThrow('Error al registrar el usuario');
   });
 
-  it('llama a /api/auth/register con método POST y body correcto', async () => {
+  it('calls /api/auth/register with POST method and correct body', async () => {
     mockFetch.mockResolvedValue(
       makeResponse(201, { token: 'tok', userId: 2, username: 'user' }),
     );
@@ -63,7 +63,7 @@ describe('register', () => {
 });
 
 describe('login', () => {
-  it('retorna token y user en caso de éxito', async () => {
+  it('returns token and user on success', async () => {
     mockFetch.mockResolvedValue(
       makeResponse(200, { token: 'tok456', userId: 5, username: 'maria' }),
     );
@@ -72,17 +72,17 @@ describe('login', () => {
     expect(result.user).toEqual({ userId: 5, username: 'maria' });
   });
 
-  it('lanza error localizado si las credenciales son inválidas (401)', async () => {
+  it('throws a localized error when credentials are invalid (401)', async () => {
     mockFetch.mockResolvedValue(makeResponse(401, 'Unauthorized'));
     await expect(login('user', 'wrong')).rejects.toThrow('Usuario o contraseña incorrectos');
   });
 
-  it('lanza error genérico en error de servidor (500)', async () => {
+  it('throws a generic error on server error (500)', async () => {
     mockFetch.mockResolvedValue(makeResponse(500, 'Internal server error'));
     await expect(login('user', 'pass')).rejects.toThrow('Error al iniciar sesión');
   });
 
-  it('llama a /api/auth/login con método POST y body correcto', async () => {
+  it('calls /api/auth/login with POST method and correct body', async () => {
     mockFetch.mockResolvedValue(
       makeResponse(200, { token: 'tok', userId: 1, username: 'u' }),
     );
@@ -98,7 +98,7 @@ describe('login', () => {
 });
 
 describe('logout', () => {
-  it('no lanza ningún error', () => {
+  it('does not throw any error', () => {
     expect(() => logout()).not.toThrow();
   });
 });

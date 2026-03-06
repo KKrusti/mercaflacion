@@ -12,20 +12,20 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('.product-detail')).toBeVisible({ timeout: 5000 });
 });
 
-test('el botón de editar imagen es visible en el detalle del producto', async ({ page }) => {
+test('the edit image button is visible in the product detail', async ({ page }) => {
   await expect(
     page.getByRole('button', { name: 'Cambiar imagen del producto' }),
   ).toBeVisible();
 });
 
-test('al pulsar el botón aparece el input de URL', async ({ page }) => {
+test('pressing the button shows the URL input', async ({ page }) => {
   await page.getByRole('button', { name: 'Cambiar imagen del producto' }).click();
   await expect(page.getByLabel('URL de imagen del producto')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Guardar imagen' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Cancelar' })).toBeVisible();
 });
 
-test('cancelar oculta el input y vuelve a mostrar el botón de editar', async ({ page }) => {
+test('cancelling hides the input and shows the edit button again', async ({ page }) => {
   await page.getByRole('button', { name: 'Cambiar imagen del producto' }).click();
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByLabel('URL de imagen del producto')).not.toBeVisible();
@@ -34,7 +34,7 @@ test('cancelar oculta el input y vuelve a mostrar el botón de editar', async ({
   ).toBeVisible();
 });
 
-test('guardar llama al PATCH y cierra el input', async ({ page }) => {
+test('saving calls PATCH and closes the input', async ({ page }) => {
   let patchCalled = false;
   await page.route(`/api/products/${PRODUCT_ID}/image`, (route) => {
     patchCalled = true;
@@ -49,7 +49,7 @@ test('guardar llama al PATCH y cierra el input', async ({ page }) => {
   expect(patchCalled).toBe(true);
 });
 
-test('muestra error si el servidor devuelve un error al guardar', async ({ page }) => {
+test('shows an error if the server returns an error when saving', async ({ page }) => {
   await page.route(`/api/products/${PRODUCT_ID}/image`, (route) =>
     route.fulfill({ status: 500, body: 'Internal Server Error' }),
   );
@@ -61,7 +61,7 @@ test('muestra error si el servidor devuelve un error al guardar', async ({ page 
   await expect(page.getByRole('alert')).toContainText(/No se pudo guardar/i);
 });
 
-test('muestra validación si se intenta guardar con URL vacía', async ({ page }) => {
+test('shows validation error when trying to save with an empty URL', async ({ page }) => {
   await page.getByRole('button', { name: 'Cambiar imagen del producto' }).click();
   await page.getByRole('button', { name: 'Guardar imagen' }).click();
   await expect(page.getByRole('alert')).toContainText(/URL/i);

@@ -90,11 +90,11 @@ export async function stubAnalytics(page: Page) {
       contentType: 'application/json',
       body: JSON.stringify({
         mostPurchased: [
-          { productId: 'leche-entera-hacendado-1l', name: 'LECHE ENTERA HACENDADO 1L', purchaseCount: 12, currentPrice: 0.89, imageUrl: null },
-          { productId: 'pan-de-molde-hacendado', name: 'PAN DE MOLDE HACENDADO', purchaseCount: 8, currentPrice: 1.35, imageUrl: null },
+          { id: 'leche-entera-hacendado-1l', name: 'LECHE ENTERA HACENDADO 1L', purchaseCount: 12, currentPrice: 0.89, imageUrl: null },
+          { id: 'pan-de-molde-hacendado', name: 'PAN DE MOLDE HACENDADO', purchaseCount: 8, currentPrice: 1.35, imageUrl: null },
         ],
         biggestIncreases: [
-          { productId: 'yogur-natural-hacendado', name: 'YOGUR NATURAL HACENDADO', firstPrice: 0.35, currentPrice: 0.45, increasePercent: 28.57 },
+          { id: 'yogur-natural-hacendado', name: 'YOGUR NATURAL HACENDADO', firstPrice: 0.35, currentPrice: 0.45, increasePercent: 28.57 },
         ],
       }),
     }),

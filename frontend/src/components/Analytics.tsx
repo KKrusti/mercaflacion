@@ -33,7 +33,7 @@ function formatPrice(price: number): string {
 }
 
 function formatPercent(value: number): string {
-  return `+${value.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  return `+${value.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`;
 }
 
 interface MostPurchasedRowProps {

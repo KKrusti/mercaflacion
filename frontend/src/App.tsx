@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import SearchBar from './components/SearchBar';
 import ProductDetail from './components/ProductDetail';
 import TicketUploader from './components/TicketUploader';
@@ -27,7 +27,7 @@ function saveAuth(auth: AuthState) {
   }
 }
 
-type Tab = 'productos' | 'analitica';
+type Tab = 'products' | 'analytics';
 
 function AppLogo() {
   return (
@@ -53,9 +53,71 @@ function UserIcon() {
   );
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="user-menu__chevron">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+interface UserMenuProps {
+  username: string;
+  onLogout: () => void;
+}
+
+function UserMenu({ username, onLogout }: UserMenuProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') setOpen(false);
+  }
+
+  return (
+    <div className="user-menu" ref={rootRef} onKeyDown={handleKeyDown}>
+      <button
+        type="button"
+        className="auth-btn auth-btn--active"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Menú de usuario: ${username}`}
+      >
+        <UserIcon />
+        <span className="user-menu__name">{username}</span>
+        <ChevronDownIcon />
+      </button>
+      {open && (
+        <div className="user-menu__dropdown" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            className="user-menu__item user-menu__item--danger"
+            onClick={() => { setOpen(false); onLogout(); }}
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('productos');
+  const [activeTab, setActiveTab] = useState<Tab>('products');
   const [browserState, setBrowserState] = useState<ProductBrowserState>({
     page: 0,
     pageSize: 48,
@@ -74,7 +136,7 @@ export default function App() {
 
   function handleLogoClick() {
     setSelectedProductId(null);
-    setActiveTab('productos');
+    setActiveTab('products');
     setBrowserState((prev) => ({ ...prev, page: 0 }));
   }
 
@@ -105,14 +167,7 @@ export default function App() {
         </p>
         <div className="app-header__actions">
           {auth.user ? (
-            <button
-              className="auth-btn auth-btn--active"
-              onClick={handleLogout}
-              aria-label={`Cerrar sesión de ${auth.user.username}`}
-            >
-              <UserIcon />
-              {auth.user.username}
-            </button>
+            <UserMenu username={auth.user.username} onLogout={handleLogout} />
           ) : (
             <button
               className="auth-btn"
@@ -123,7 +178,7 @@ export default function App() {
               Entrar
             </button>
           )}
-          <TicketUploader />
+          {auth.user && <TicketUploader />}
         </div>
       </header>
 
@@ -131,7 +186,22 @@ export default function App() {
         <LoginModal onAuth={handleAuth} onClose={() => setShowLoginModal(false)} />
       )}
 
-      {selectedProductId ? (
+      {!auth.user ? (
+        <div className="app-content guest-screen">
+          <div className="guest-screen__card">
+            <p className="guest-screen__message">
+              Inicia sesión para consultar y comparar el historial de precios de tus productos.
+            </p>
+            <button
+              className="auth-btn guest-screen__btn"
+              onClick={() => setShowLoginModal(true)}
+            >
+              <UserIcon />
+              Iniciar sesión
+            </button>
+          </div>
+        </div>
+      ) : selectedProductId ? (
         <div className="app-content">
           <ProductDetail
             productId={selectedProductId}
@@ -143,21 +213,21 @@ export default function App() {
           <nav className="app-tabs" role="tablist" aria-label="Secciones de la aplicación">
             <button
               role="tab"
-              aria-selected={activeTab === 'productos'}
-              aria-controls="tab-panel-productos"
-              id="tab-productos"
-              className={`app-tabs__tab${activeTab === 'productos' ? ' app-tabs__tab--active' : ''}`}
-              onClick={() => setActiveTab('productos')}
+              aria-selected={activeTab === 'products'}
+              aria-controls="tab-panel-products"
+              id="tab-products"
+              className={`app-tabs__tab${activeTab === 'products' ? ' app-tabs__tab--active' : ''}`}
+              onClick={() => setActiveTab('products')}
             >
               Productos
             </button>
             <button
               role="tab"
-              aria-selected={activeTab === 'analitica'}
-              aria-controls="tab-panel-analitica"
-              id="tab-analitica"
-              className={`app-tabs__tab${activeTab === 'analitica' ? ' app-tabs__tab--active' : ''}`}
-              onClick={() => setActiveTab('analitica')}
+              aria-selected={activeTab === 'analytics'}
+              aria-controls="tab-panel-analytics"
+              id="tab-analytics"
+              className={`app-tabs__tab${activeTab === 'analytics' ? ' app-tabs__tab--active' : ''}`}
+              onClick={() => setActiveTab('analytics')}
             >
               Analítica
             </button>
@@ -166,11 +236,11 @@ export default function App() {
           <div className="app-content">
             <div
               role="tabpanel"
-              id="tab-panel-productos"
-              aria-labelledby="tab-productos"
-              hidden={activeTab !== 'productos'}
+              id="tab-panel-products"
+              aria-labelledby="tab-products"
+              hidden={activeTab !== 'products'}
             >
-              {activeTab === 'productos' && (
+              {activeTab === 'products' && (
                 <SearchBar
                   onSelectProduct={handleSelectProduct}
                   browserState={browserState}
@@ -180,11 +250,11 @@ export default function App() {
             </div>
             <div
               role="tabpanel"
-              id="tab-panel-analitica"
-              aria-labelledby="tab-analitica"
-              hidden={activeTab !== 'analitica'}
+              id="tab-panel-analytics"
+              aria-labelledby="tab-analytics"
+              hidden={activeTab !== 'analytics'}
             >
-              {activeTab === 'analitica' && (
+              {activeTab === 'analytics' && (
                 <Analytics onSelectProduct={handleSelectProduct} />
               )}
             </div>

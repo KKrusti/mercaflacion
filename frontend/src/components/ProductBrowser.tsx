@@ -158,6 +158,14 @@ export default function ProductBrowser({
     );
   }
 
+  if (products.length === 0) {
+    return (
+      <div className="empty-state">
+        <p>No hay productos en el catálogo.</p>
+      </div>
+    );
+  }
+
   const totalPages = Math.ceil(products.length / pageSize);
   // Clamp page in case the list shrank after a reload.
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
@@ -226,6 +234,9 @@ export default function ProductBrowser({
           >
             <ProductImage productId={product.id} imageUrl={product.imageUrl} category={product.category} size="md" />
             <span className="browser-product-card__name">{product.name}</span>
+            {product.category && (
+              <span className="category">{product.category}</span>
+            )}
             <span className="browser-product-card__price">
               {product.currentPrice.toFixed(2).replace('.', ',')} €
             </span>

@@ -6,42 +6,44 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('muestra el catálogo de productos en la carga inicial', async ({ page }) => {
+test('shows the product catalog on initial load', async ({ page }) => {
   await expect(page.getByText('LECHE ENTERA HACENDADO 1L')).toBeVisible();
   await expect(page.getByText('PAN DE MOLDE HACENDADO')).toBeVisible();
   await expect(page.getByText('YOGUR NATURAL HACENDADO')).toBeVisible();
 });
 
-test('muestra los precios formateados en los productos', async ({ page }) => {
+test('shows formatted prices on the products', async ({ page }) => {
   await expect(page.getByText('0,89 €')).toBeVisible();
   await expect(page.getByText('1,35 €')).toBeVisible();
 });
 
-test('muestra las categorías de los productos', async ({ page }) => {
+test('shows product categories', async ({ page }) => {
   const lacteosItems = page.getByText('Lácteos');
   await expect(lacteosItems.first()).toBeVisible();
 });
 
-test('el botón de 4 columnas cambia el layout del grid', async ({ page }) => {
-  const grid = page.locator('.product-grid');
+test('the 4-column button changes the grid layout', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'El selector de columnas está oculto en móvil');
+  const grid = page.locator('[data-testid="browser-grid"]');
   await page.getByRole('button', { name: '4 columnas' }).click();
-  await expect(grid).toHaveClass(/product-grid--4/);
+  await expect(grid).toHaveClass(/browser-grid--4/);
 });
 
-test('el botón de 3 columnas restaura el layout por defecto', async ({ page }) => {
-  const grid = page.locator('.product-grid');
+test('the 3-column button restores the default layout', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'El selector de columnas está oculto en móvil');
+  const grid = page.locator('[data-testid="browser-grid"]');
   await page.getByRole('button', { name: '4 columnas' }).click();
   await page.getByRole('button', { name: '3 columnas' }).click();
-  await expect(grid).toHaveClass(/product-grid--3/);
+  await expect(grid).toHaveClass(/browser-grid--3/);
 });
 
-test('muestra estado vacío cuando la API devuelve una lista vacía', async ({ page }) => {
+test('shows empty state when the API returns an empty list', async ({ page }) => {
   await stubEmptyProducts(page);
   await page.reload();
   await expect(page.getByText(/no hay productos/i)).toBeVisible();
 });
 
-test('la paginación aparece cuando hay más productos que el tamaño de página', async ({ page }) => {
+test('pagination appears when there are more products than the page size', async ({ page }) => {
   // Generate 60 products to exceed default pageSize of 48
   const manyProducts = Array.from({ length: 60 }, (_, i) => ({
     id: `producto-${i}`,
@@ -62,7 +64,7 @@ test('la paginación aparece cuando hay más productos que el tamaño de página
   await expect(page.getByRole('button', { name: /siguiente/i })).toBeVisible();
 });
 
-test('navega a la página siguiente al pulsar el botón siguiente', async ({ page }) => {
+test('navigates to the next page when the next button is clicked', async ({ page }) => {
   const manyProducts = Array.from({ length: 60 }, (_, i) => ({
     id: `producto-${i}`,
     name: `PRODUCTO ${i}`,

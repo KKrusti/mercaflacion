@@ -6,11 +6,11 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('la barra de búsqueda está visible', async ({ page }) => {
+test('the search bar is visible', async ({ page }) => {
   await expect(page.getByPlaceholder(/buscar producto/i)).toBeVisible();
 });
 
-test('escribir en el buscador oculta el catálogo y muestra resultados', async ({ page }) => {
+test('typing in the search box hides the catalog and shows results', async ({ page }) => {
   // Stub the search response
   await page.route('/api/products?q=leche', (route) =>
     route.fulfill({
@@ -32,10 +32,10 @@ test('escribir en el buscador oculta el catálogo y muestra resultados', async (
   // Wait for debounce + result
   await expect(page.getByText('LECHE ENTERA HACENDADO 1L')).toBeVisible({ timeout: 2000 });
   // ProductBrowser should be hidden
-  await expect(page.locator('.product-grid')).not.toBeVisible();
+  await expect(page.locator('.browser-grid')).not.toBeVisible();
 });
 
-test('muestra "Sin resultados" cuando la búsqueda no encuentra nada', async ({ page }) => {
+test('shows "Sin resultados" when the search finds nothing', async ({ page }) => {
   await page.route('/api/products?q=xyz', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
   );
@@ -43,14 +43,14 @@ test('muestra "Sin resultados" cuando la búsqueda no encuentra nada', async ({ 
   await expect(page.getByText(/sin resultados/i)).toBeVisible({ timeout: 2000 });
 });
 
-test('limpiar el buscador vuelve a mostrar el catálogo', async ({ page }) => {
+test('clearing the search box shows the catalog again', async ({ page }) => {
   const searchInput = page.getByPlaceholder(/buscar producto/i);
   await searchInput.fill('leche');
   await searchInput.clear();
-  await expect(page.locator('.product-grid')).toBeVisible({ timeout: 2000 });
+  await expect(page.locator('.browser-grid')).toBeVisible({ timeout: 2000 });
 });
 
-test('hacer click en un resultado navega al detalle del producto', async ({ page }) => {
+test('clicking a result navigates to the product detail page', async ({ page }) => {
   await page.route('/api/products?q=leche', (route) =>
     route.fulfill({
       status: 200,
@@ -87,7 +87,7 @@ test('hacer click en un resultado navega al detalle del producto', async ({ page
   await expect(page.locator('.product-detail')).toBeVisible({ timeout: 3000 });
 });
 
-test('el botón volver desde detalle regresa al estado de búsqueda', async ({ page }) => {
+test('the back button from detail returns to the search state', async ({ page }) => {
   await page.route('/api/products?q=leche', (route) =>
     route.fulfill({
       status: 200,
@@ -120,6 +120,6 @@ test('el botón volver desde detalle regresa al estado de búsqueda', async ({ p
   await page.getByPlaceholder(/buscar producto/i).fill('leche');
   await page.getByText('LECHE ENTERA HACENDADO 1L').first().click();
   await expect(page.locator('.product-detail')).toBeVisible({ timeout: 3000 });
-  await page.getByRole('button', { name: /back to search/i }).click();
+  await page.getByRole('button', { name: /volver a la búsqueda/i }).click();
   await expect(page.locator('.product-detail')).not.toBeVisible();
 });

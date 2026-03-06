@@ -30,7 +30,17 @@ const mockProduct: Product = {
   ],
 };
 
+const AUTH_KEY = 'mercaflacion_auth';
+
+function loginAs(username: string) {
+  localStorage.setItem(
+    AUTH_KEY,
+    JSON.stringify({ user: { username }, token: 'test-token' }),
+  );
+}
+
 beforeEach(() => {
+  localStorage.removeItem(AUTH_KEY);
   vi.mocked(productsApi.getAllProducts).mockResolvedValue([]);
   vi.mocked(productsApi.getAnalytics).mockResolvedValue({
     mostPurchased: [],
@@ -44,12 +54,20 @@ describe('App', () => {
     expect(screen.getByRole('img', { name: /mercaflación/i })).toBeInTheDocument();
   });
 
-  it('shows SearchBar by default', () => {
+  it('shows guest screen when not logged in', () => {
+    render(<App />);
+    expect(screen.getByText(/iniciar sesión/i)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/buscar producto/i)).not.toBeInTheDocument();
+  });
+
+  it('shows SearchBar by default when logged in', () => {
+    loginAs('carlos');
     render(<App />);
     expect(screen.getByPlaceholderText(/buscar producto/i)).toBeInTheDocument();
   });
 
   it('navigates to ProductDetail when a product is selected', async () => {
+    loginAs('carlos');
     vi.mocked(productsApi.searchProducts).mockResolvedValue(mockResults);
     vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
     render(<App />);
@@ -62,6 +80,7 @@ describe('App', () => {
   });
 
   it('returns to SearchBar when the back button is pressed', async () => {
+    loginAs('carlos');
     vi.mocked(productsApi.searchProducts).mockResolvedValue(mockResults);
     vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
     render(<App />);
@@ -74,37 +93,39 @@ describe('App', () => {
   });
 
   it('clicking the logo navigates to the home with productos tab and resets to page 1', async () => {
+    loginAs('carlos');
     vi.mocked(productsApi.searchProducts).mockResolvedValue(mockResults);
     vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
     render(<App />);
 
-    // Navegar a analítica
+    // Navigate to analytics tab
     await userEvent.click(screen.getByRole('tab', { name: /analítica/i }));
     expect(screen.getByRole('tab', { name: /analítica/i })).toHaveAttribute('aria-selected', 'true');
 
-    // Clickar en el logo
+    // Click the logo
     await userEvent.click(screen.getByRole('button', { name: /ir a la página principal/i }));
 
-    // Debe volver a la pestaña productos
+    // Should return to the products tab
     expect(screen.getByRole('tab', { name: /productos/i })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByPlaceholderText(/buscar producto/i)).toBeInTheDocument();
   });
 
   it('clicking the logo from ProductDetail returns to home', async () => {
+    loginAs('carlos');
     vi.mocked(productsApi.searchProducts).mockResolvedValue(mockResults);
     vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
     render(<App />);
 
-    // Navegar a un producto
+    // Navigate to a product
     await userEvent.type(screen.getByRole('textbox'), 'leche');
     await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
     await userEvent.click(screen.getByText('LECHE ENTERA HACENDADO 1L'));
     await waitFor(() => screen.getByRole('button', { name: /volver/i }));
 
-    // Clickar en el logo
+    // Click the logo
     await userEvent.click(screen.getByRole('button', { name: /ir a la página principal/i }));
 
-    // Debe volver al buscador
+    // Should return to the search bar
     expect(screen.getByPlaceholderText(/buscar producto/i)).toBeInTheDocument();
   });
 });

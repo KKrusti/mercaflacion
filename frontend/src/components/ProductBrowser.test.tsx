@@ -44,13 +44,13 @@ describe('ProductBrowser', () => {
     expect(screen.getByLabelText('ARROZ LARGO SOS 1KG')).toBeInTheDocument();
   });
 
-  it('renders no category separators', async () => {
+  it('renders category labels on each card', async () => {
     vi.mocked(productsApi.getAllProducts).mockResolvedValue(mockProducts);
     render(<ProductBrowser onSelectProduct={vi.fn()} />);
     await waitFor(() => screen.getByTestId('browser-grid'));
-    // Category headers must not appear as standalone text nodes.
-    expect(screen.queryByText('Lácteos')).not.toBeInTheDocument();
-    expect(screen.queryByText('Arroces y pastas')).not.toBeInTheDocument();
+    // Category labels appear on cards, not as group separators.
+    expect(screen.getAllByText('Lácteos').length).toBeGreaterThan(0);
+    expect(screen.getByText('Arroces y pastas')).toBeInTheDocument();
   });
 
   it('shows product price in each card', async () => {

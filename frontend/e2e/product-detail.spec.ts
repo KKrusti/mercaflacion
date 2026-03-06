@@ -12,42 +12,42 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('.product-detail')).toBeVisible({ timeout: 5000 });
 });
 
-test('muestra el nombre del producto en el detalle', async ({ page }) => {
+test('shows the product name in the detail view', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'LECHE ENTERA HACENDADO 1L' })).toBeVisible();
 });
 
-test('muestra la categoría del producto', async ({ page }) => {
+test('shows the product category', async ({ page }) => {
   await expect(page.getByText('Lácteos')).toBeVisible();
 });
 
-test('muestra el precio actual formateado', async ({ page }) => {
+test('shows the formatted current price', async ({ page }) => {
   const priceEl = page.locator('.detail-header .price');
   await expect(priceEl).toContainText('0,89 €');
 });
 
-test('muestra el historial de precios en la tabla', async ({ page }) => {
-  await expect(page.getByText('Historial de precios')).toBeVisible();
-  await expect(page.getByText('Mercadona')).toBeVisible();
+test('shows the price history in the table', async ({ page }) => {
+  await expect(page.getByRole('heading', { name: 'Historial de precios' })).toBeVisible();
+  await expect(page.getByText('Mercadona').first()).toBeVisible();
 });
 
-test('muestra el gráfico de precios', async ({ page }) => {
-  await expect(page.getByText('Price history')).toBeVisible();
+test('shows the price chart', async ({ page }) => {
+  await expect(page.getByText('Evolución del precio')).toBeVisible();
 });
 
-test('muestra la badge de variación de precio', async ({ page }) => {
+test('shows the price variation badge', async ({ page }) => {
   // 0.79 → 0.89 = +12.7%
   await expect(page.locator('.price-change-badge')).toBeVisible();
   await expect(page.locator('.price-change-badge')).toContainText('+12,7%');
 });
 
-test('el botón "Back to search" navega de vuelta al catálogo', async ({ page }) => {
-  await page.getByRole('button', { name: /back to search/i }).click();
+test('the back button navigates back to the catalog', async ({ page }) => {
+  await page.getByRole('button', { name: /volver a la búsqueda/i }).click();
   await expect(page.locator('.product-detail')).not.toBeVisible();
-  await expect(page.locator('.product-grid')).toBeVisible();
+  await expect(page.locator('.browser-grid')).toBeVisible();
 });
 
-test('el logo de la app navega a la home y muestra el catálogo', async ({ page }) => {
+test('the app logo navigates to the home and shows the catalog', async ({ page }) => {
   await page.getByRole('button', { name: 'Ir a la página principal' }).click();
   await expect(page.locator('.product-detail')).not.toBeVisible();
-  await expect(page.locator('.product-grid')).toBeVisible();
+  await expect(page.locator('.browser-grid')).toBeVisible();
 });

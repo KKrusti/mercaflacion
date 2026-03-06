@@ -249,7 +249,7 @@ export default function TicketUploader() {
                 ? `${summary.succeeded} ticket${summary.succeeded !== 1 ? 's' : ''} importado${summary.succeeded !== 1 ? 's' : ''}`
                 : `${summary.succeeded} ok · ${summary.failed} error${summary.failed !== 1 ? 'es' : ''}`}
             </p>
-            {summary.items.length > 1 && (
+            {summary.items.length >= 1 && (
               <ul className="ticket-uploader__toast-list">
                 {summary.items.map((item) => (
                   <li

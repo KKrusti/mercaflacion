@@ -189,7 +189,7 @@ describe('TicketUploader', () => {
   });
 
   it('shows a friendly duplicate-file error message when the server returns a 409', async () => {
-    // El mensaje amigable ya viene traducido desde api/products.ts (friendlyUploadError)
+    // The friendly message is already translated in api/products.ts (friendlyUploadError)
     const duplicateSummary: TicketUploadSummary = {
       total: 2,
       succeeded: 1,

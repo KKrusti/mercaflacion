@@ -115,7 +115,7 @@ export default function SearchBar({ onSelectProduct, browserState, onBrowserStat
         {!loading && searched && results.length === 0 && (
           <div className="empty-state">
             <EmptyResultsIcon />
-            <p>No products found for &quot;{query}&quot;</p>
+            <p>Sin resultados para &quot;{query}&quot;</p>
             <p className="empty-state__hint">Prueba con otro término de búsqueda</p>
           </div>
         )}

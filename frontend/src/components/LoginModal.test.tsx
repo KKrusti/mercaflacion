@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe('LoginModal', () => {
-  it('renderiza el formulario de login por defecto', () => {
+  it('renders the login form by default', () => {
     renderModal();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Iniciar sesión')).toBeInTheDocument();
@@ -31,25 +31,25 @@ describe('LoginModal', () => {
     expect(screen.getByLabelText('Contraseña')).toBeInTheDocument();
   });
 
-  it('cambia al modo registro al pulsar "Registrarse"', () => {
+  it('switches to register mode when "Registrarse" is pressed', () => {
     renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
     expect(screen.getByRole('heading', { name: 'Crear cuenta' })).toBeInTheDocument();
   });
 
-  it('llama a onClose al pulsar el botón cerrar', () => {
+  it('calls onClose when the close button is pressed', () => {
     renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('llama a onClose al hacer click en el overlay', () => {
+  it('calls onClose when clicking the overlay', () => {
     renderModal();
     fireEvent.click(screen.getByRole('dialog'));
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it('llama a login con las credenciales del formulario', async () => {
+  it('calls login with the form credentials', async () => {
     mockLogin.mockResolvedValue({ token: 'tok', user: { userId: 1, username: 'carlos' } });
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
@@ -58,7 +58,7 @@ describe('LoginModal', () => {
     await waitFor(() => expect(mockLogin).toHaveBeenCalledWith('carlos', 'password123'));
   });
 
-  it('llama a onAuth con el token y el usuario tras login exitoso', async () => {
+  it('calls onAuth with the token and user after a successful login', async () => {
     mockLogin.mockResolvedValue({ token: 'tok123', user: { userId: 2, username: 'carlos' } });
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
@@ -72,7 +72,7 @@ describe('LoginModal', () => {
     );
   });
 
-  it('muestra el error cuando el login falla', async () => {
+  it('shows the error when login fails', async () => {
     mockLogin.mockRejectedValue(new Error('Usuario o contraseña incorrectos'));
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
@@ -83,7 +83,7 @@ describe('LoginModal', () => {
     );
   });
 
-  it('llama a register en modo registro', async () => {
+  it('calls register in register mode', async () => {
     mockRegister.mockResolvedValue({ token: 'tok', user: { userId: 3, username: 'nuevo' } });
     const { container } = renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
@@ -93,7 +93,7 @@ describe('LoginModal', () => {
     await waitFor(() => expect(mockRegister).toHaveBeenCalledWith('nuevo', 'password123'));
   });
 
-  it('deshabilita el botón mientras carga', async () => {
+  it('disables the button while loading', async () => {
     mockLogin.mockImplementation(() => new Promise(() => {})); // never resolves
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
@@ -104,7 +104,7 @@ describe('LoginModal', () => {
     );
   });
 
-  it('limpia el error al cambiar de pestaña', async () => {
+  it('clears the error when switching tabs', async () => {
     mockLogin.mockRejectedValue(new Error('Error de prueba'));
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'u' } });

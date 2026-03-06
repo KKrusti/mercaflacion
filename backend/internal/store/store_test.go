@@ -862,7 +862,7 @@ func TestGetBiggestPriceIncreases_ExcludesDecreases(t *testing.T) {
 	s := newTestStore(t)
 	uid := createTestUser(t, s)
 
-	// precio bajó
+	// price decreased
 	p := models.Product{
 		ID:   "pan",
 		Name: "PAN INTEGRAL",
