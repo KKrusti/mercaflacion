@@ -46,6 +46,11 @@ beforeEach(() => {
     mostPurchased: [],
     biggestIncreases: [],
   });
+  vi.mocked(productsApi.getAccumulatedIPC).mockResolvedValue({
+    from_year: 2025,
+    to_year: 2025,
+    accumulated_rate: 0.025,
+  });
 });
 
 describe('App', () => {

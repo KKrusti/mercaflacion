@@ -261,6 +261,7 @@ export default function App() {
           <ProductDetail
             productId={selectedProductId}
             onBack={handleBack}
+            token={auth.token}
           />
         </div>
       ) : (

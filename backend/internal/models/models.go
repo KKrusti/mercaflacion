@@ -14,9 +14,10 @@ type User struct {
 // PriceRecord represents a single price observation for a product,
 // typically extracted from a digital receipt/ticket.
 type PriceRecord struct {
-	Date  time.Time `json:"date"`
-	Price float64   `json:"price"`
-	Store string    `json:"store,omitempty"`
+	RecordID int64     `json:"recordId,omitempty"` // DB primary key; 0 for seed/anonymous records
+	Date     time.Time `json:"date"`
+	Price    float64   `json:"price"`
+	Store    string    `json:"store,omitempty"`
 }
 
 // Product represents a grocery item with its price history.
@@ -74,6 +75,16 @@ type PriceIncreaseProduct struct {
 type AnalyticsResult struct {
 	MostPurchased    []MostPurchasedProduct `json:"mostPurchased"`
 	BiggestIncreases []PriceIncreaseProduct `json:"biggestIncreases"`
+}
+
+// IPCResult is the response body for GET /api/ipc?from=<year>.
+// AccumulatedRate is the compound interannual inflation for Catalonia from
+// FromYear to the most recent available year, expressed as a decimal
+// (e.g. 0.0537 means +5.37%).
+type IPCResult struct {
+	FromYear        int     `json:"from_year"`
+	ToYear          int     `json:"to_year"`
+	AccumulatedRate float64 `json:"accumulated_rate"`
 }
 
 // Household represents a shared grocery group (e.g. people living together).

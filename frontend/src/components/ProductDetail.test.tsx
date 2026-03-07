@@ -5,7 +5,12 @@ import ProductDetail from './ProductDetail';
 import * as productsApi from '../api/products';
 import type { Product } from '../types';
 
-vi.mock('../api/products');
+vi.mock('../api/products', () => ({
+  getProduct: vi.fn(),
+  updateProductImage: vi.fn(),
+  deletePriceRecord: vi.fn(),
+  getAccumulatedIPC: vi.fn(),
+}));
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -29,6 +34,11 @@ const mockProduct: Product = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(productsApi.getAccumulatedIPC).mockResolvedValue({
+    from_year: 2025,
+    to_year: 2025,
+    accumulated_rate: 0.025,
+  });
 });
 
 describe('ProductDetail', () => {
@@ -133,7 +143,41 @@ describe('ProductDetail', () => {
     expect(badge).toHaveClass('price-change-badge--down');
   });
 
-  it('does not show the badge when there is only one price record', async () => {
+  it('shows the accumulated IPC when the API returns data', async () => {
+    vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+    vi.mocked(productsApi.getAccumulatedIPC).mockResolvedValue({
+      from_year: 2025,
+      to_year: 2025,
+      accumulated_rate: 0.025,
+    });
+    render(<ProductDetail productId="1" onBack={vi.fn()} />);
+    await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+    await waitFor(() =>
+      expect(document.querySelector('.detail-header__ipc-value')).toHaveTextContent('+2,5%'),
+    );
+  });
+
+  it('does not show the IPC block when accumulated_rate is 0', async () => {
+    vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+    vi.mocked(productsApi.getAccumulatedIPC).mockResolvedValue({
+      from_year: 2025,
+      to_year: 2025,
+      accumulated_rate: 0,
+    });
+    render(<ProductDetail productId="1" onBack={vi.fn()} />);
+    await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+    expect(document.querySelector('.detail-header__ipc')).not.toBeInTheDocument();
+  });
+
+  it('shows the max price with date when there are at least 2 price records', async () => {
+    vi.mocked(productsApi.getProduct).mockResolvedValue(mockProduct);
+    render(<ProductDetail productId="1" onBack={vi.fn()} />);
+    await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+    // max is 0.89 (the second record)
+    expect(document.querySelector('.detail-header__max-price-value')).toHaveTextContent('0,89 €');
+  });
+
+  it('does not show the max price block when there is only one price record', async () => {
     const singleRecordProduct: Product = {
       ...mockProduct,
       priceHistory: [{ date: '2025-01-15T00:00:00Z', price: 0.89, store: 'Mercadona' }],
@@ -142,6 +186,7 @@ describe('ProductDetail', () => {
     render(<ProductDetail productId="1" onBack={vi.fn()} />);
     await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
     expect(document.querySelector('.price-change-badge')).not.toBeInTheDocument();
+    expect(document.querySelector('.detail-header__max-price')).not.toBeInTheDocument();
   });
 
   describe('ImageEditor', () => {
@@ -223,6 +268,81 @@ describe('ProductDetail', () => {
       await userEvent.click(screen.getByRole('button', { name: 'Cambiar imagen del producto' }));
       await userEvent.keyboard('{Escape}');
       expect(screen.queryByLabelText('URL de imagen del producto')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('DeletePriceRecord', () => {
+    const productWithRecordIds: Product = {
+      ...mockProduct,
+      priceHistory: [
+        { date: '2025-01-15T00:00:00Z', price: 0.79, store: 'Mercadona', recordId: 10 },
+        { date: '2025-09-22T00:00:00Z', price: 0.89, store: 'Mercadona', recordId: 11 },
+      ],
+    };
+
+    it('does not show delete column when token is not provided', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      render(<ProductDetail productId="1" onBack={vi.fn()} />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      expect(document.querySelector('.price-record-delete-btn')).not.toBeInTheDocument();
+    });
+
+    it('shows delete buttons when token is provided', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      render(<ProductDetail productId="1" onBack={vi.fn()} token="tok" />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      expect(document.querySelectorAll('.price-record-delete-btn')).toHaveLength(2);
+    });
+
+    it('shows inline confirm when trash button is clicked', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      render(<ProductDetail productId="1" onBack={vi.fn()} token="tok" />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      const [firstBtn] = document.querySelectorAll('.price-record-delete-btn');
+      await userEvent.click(firstBtn);
+      expect(screen.getByRole('button', { name: 'Eliminar' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cancelar' })).toBeInTheDocument();
+    });
+
+    it('hides confirm when Cancelar is clicked', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      render(<ProductDetail productId="1" onBack={vi.fn()} token="tok" />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      const [firstBtn] = document.querySelectorAll('.price-record-delete-btn');
+      await userEvent.click(firstBtn);
+      await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+      expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
+    });
+
+    it('calls deletePriceRecord and removes the row on confirm', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      vi.mocked(productsApi.deletePriceRecord).mockResolvedValue(undefined);
+      render(<ProductDetail productId="1" onBack={vi.fn()} token="tok" />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      // The table is reversed; first visible row is recordId 11
+      const [firstBtn] = document.querySelectorAll('.price-record-delete-btn');
+      await userEvent.click(firstBtn);
+      await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+      await waitFor(() =>
+        expect(productsApi.deletePriceRecord).toHaveBeenCalledWith('1', 11),
+      );
+      // After deletion only one Mercadona entry remains
+      await waitFor(() =>
+        expect(document.querySelectorAll('.price-record-delete-btn')).toHaveLength(1),
+      );
+    });
+
+    it('shows delete error alert when deletePriceRecord fails', async () => {
+      vi.mocked(productsApi.getProduct).mockResolvedValue(productWithRecordIds);
+      vi.mocked(productsApi.deletePriceRecord).mockRejectedValue(new Error('Network error'));
+      render(<ProductDetail productId="1" onBack={vi.fn()} token="tok" />);
+      await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
+      const [firstBtn] = document.querySelectorAll('.price-record-delete-btn');
+      await userEvent.click(firstBtn);
+      await userEvent.click(screen.getByRole('button', { name: 'Eliminar' }));
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent('No se pudo eliminar'),
+      );
     });
   });
 });

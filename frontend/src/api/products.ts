@@ -145,6 +145,39 @@ export async function updateProductImage(id: string, imageUrl: string): Promise<
   }
 }
 
+export async function deletePriceRecord(productId: string, recordId: number): Promise<void> {
+  const { signal, clear } = withTimeout(READ_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `${API_BASE}/products/${encodeURIComponent(productId)}/prices/${recordId}`,
+      { method: 'DELETE', headers: authHeaders(), signal },
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(body || `Delete failed: ${res.statusText}`);
+    }
+  } finally {
+    clear();
+  }
+}
+
+export interface IPCResult {
+  from_year: number;
+  to_year: number;
+  accumulated_rate: number;
+}
+
+export async function getAccumulatedIPC(fromYear: number): Promise<IPCResult> {
+  const { signal, clear } = withTimeout(READ_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}/ipc?from=${fromYear}`, { signal });
+    if (!res.ok) throw new Error(`IPC fetch failed: ${res.statusText}`);
+    return await res.json() as IPCResult;
+  } finally {
+    clear();
+  }
+}
+
 export async function getAnalytics(): Promise<AnalyticsResult> {
   const { signal, clear } = withTimeout(READ_TIMEOUT_MS);
   try {

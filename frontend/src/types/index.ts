@@ -1,4 +1,5 @@
 export interface PriceRecord {
+  recordId?: number; // DB primary key; present for records belonging to the authenticated user
   date: string;
   price: number;
   store?: string;

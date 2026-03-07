@@ -34,6 +34,9 @@ type Store interface {
 	// UpsertPriceRecord ensures the named product exists (creating it if needed)
 	// and appends a new price record scoped to userID.
 	UpsertPriceRecord(userID int64, name string, record models.PriceRecord) error
+	// DeletePriceRecord deletes the price record with the given DB ID.
+	// Returns an error if the record does not exist or does not belong to userID's household.
+	DeletePriceRecord(recordID int64, userID int64) error
 	// UpsertPriceRecordBatch persists all (name, record) pairs inside a single
 	// transaction scoped to userID. Either every pair is committed or none is.
 	UpsertPriceRecordBatch(userID int64, entries []models.PriceRecordEntry) error
@@ -64,6 +67,12 @@ type Store interface {
 	// CleanupExpiredTokens removes revoked-token entries whose expiry has
 	// passed. Safe to call periodically from a background goroutine.
 	CleanupExpiredTokens() error
+
+	// GetAccumulatedIPC returns the compound interannual IPC for Catalonia from
+	// fromYear up to and including the most recent available year in the database.
+	// Returns the accumulated rate as a decimal (e.g. 0.0537 for +5.37%) and the
+	// last year covered. Returns (0, fromYear, nil) if no data is available.
+	GetAccumulatedIPC(fromYear int) (rate float64, toYear int, err error)
 
 	// GetHouseholdMembers returns all members of the household userID belongs to.
 	// Returns nil if userID has no household.
@@ -446,7 +455,7 @@ func (s *SQLiteStore) GetProductByID(userID int64, id string) (*models.Product, 
 	queryArgs := append([]any{id}, clauseArgs...)
 
 	rows, err := s.db.Query(
-		`SELECT date, price, store FROM price_records WHERE product_id = ? AND `+clause+` ORDER BY date ASC`,
+		`SELECT id, date, price, store FROM price_records WHERE product_id = ? AND `+clause+` ORDER BY date ASC`,
 		queryArgs...,
 	)
 	if err != nil {
@@ -457,7 +466,7 @@ func (s *SQLiteStore) GetProductByID(userID int64, id string) (*models.Product, 
 	for rows.Next() {
 		var rec models.PriceRecord
 		var dateStr string
-		if err := rows.Scan(&dateStr, &rec.Price, &rec.Store); err != nil {
+		if err := rows.Scan(&rec.RecordID, &dateStr, &rec.Price, &rec.Store); err != nil {
 			return nil, fmt.Errorf("scan price record: %w", err)
 		}
 		rec.Date, err = time.Parse(time.DateOnly, dateStr)
@@ -794,6 +803,28 @@ func (s *SQLiteStore) DeleteHouseholdInvitation(token string) error {
 	return nil
 }
 
+// DeletePriceRecord deletes the price record with the given ID only when it
+// belongs to userID's household. Returns an error if no row was affected.
+func (s *SQLiteStore) DeletePriceRecord(recordID int64, userID int64) error {
+	ids, err := s.householdUserIDs(userID)
+	if err != nil {
+		return fmt.Errorf("resolve household: %w", err)
+	}
+	clause, clauseArgs := userIDsInClause(ids)
+	args := append([]any{recordID}, clauseArgs...)
+	result, err := s.db.Exec(
+		`DELETE FROM price_records WHERE id = ? AND `+clause,
+		args...,
+	)
+	if err != nil {
+		return fmt.Errorf("delete price record %d: %w", recordID, err)
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
+		return fmt.Errorf("price record %d not found or not owned by user", recordID)
+	}
+	return nil
+}
+
 // RevokeToken stores the given JTI so that ValidateToken callers can check
 // whether a token has been invalidated (e.g., after logout).
 func (s *SQLiteStore) RevokeToken(jti string, expiresAt time.Time) error {
@@ -906,4 +937,40 @@ func (s *SQLiteStore) GetBiggestPriceIncreases(userID int64, limit int) ([]model
 		results = []models.PriceIncreaseProduct{}
 	}
 	return results, nil
+}
+
+// GetAccumulatedIPC computes the compound interannual IPC for Catalonia from
+// fromYear up to the latest available year in the ipc_rates table.
+// Formula: (1+r₁)×(1+r₂)×…×(1+rN) - 1.
+// Returns (0, fromYear, nil) when no data is found for the requested range.
+func (s *SQLiteStore) GetAccumulatedIPC(fromYear int) (rate float64, toYear int, err error) {
+	rows, err := s.db.Query(
+		`SELECT year, rate FROM ipc_rates WHERE year >= ? ORDER BY year ASC`,
+		fromYear,
+	)
+	if err != nil {
+		return 0, fromYear, fmt.Errorf("query ipc_rates: %w", err)
+	}
+	defer rows.Close()
+
+	accumulated := 1.0
+	toYear = fromYear
+	found := false
+	for rows.Next() {
+		var year int
+		var r float64
+		if err := rows.Scan(&year, &r); err != nil {
+			return 0, fromYear, fmt.Errorf("scan ipc_rates: %w", err)
+		}
+		accumulated *= (1 + r)
+		toYear = year
+		found = true
+	}
+	if err := rows.Err(); err != nil {
+		return 0, fromYear, fmt.Errorf("iterate ipc_rates: %w", err)
+	}
+	if !found {
+		return 0, fromYear, nil
+	}
+	return accumulated - 1, toYear, nil
 }

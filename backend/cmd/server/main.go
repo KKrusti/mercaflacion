@@ -134,6 +134,7 @@ func main() {
 	mux.HandleFunc("/api/household", chain(h.HouseholdHandler))
 	mux.HandleFunc("/api/household/invite", chain(h.HouseholdInviteHandler))
 	mux.HandleFunc("/api/household/accept", chain(h.HouseholdAcceptHandler))
+	mux.HandleFunc("/api/ipc", chain(h.IPCHandler))
 
 	// Periodic cleanup of expired revoked-token entries (runs every hour).
 	go func() {

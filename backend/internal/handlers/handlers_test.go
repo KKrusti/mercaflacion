@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1192,6 +1193,82 @@ func TestHouseholdHandler_DeleteLeaves(t *testing.T) {
 	}
 }
 
+// --- DeletePriceRecordHandler ---
+
+func TestDeletePriceRecordHandler_Unauthenticated_Returns401(t *testing.T) {
+	h, _, _, _ := newHandlersWithUser(t)
+	req := httptest.NewRequest(http.MethodDelete, "/api/products/leche-entera-hacendado-1l/prices/1", nil)
+	w := httptest.NewRecorder()
+	h.DeletePriceRecordHandler(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestDeletePriceRecordHandler_MethodNotAllowed(t *testing.T) {
+	h, _, uid, productID := newHandlersWithUser(t)
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/api/products/"+productID+"/prices/1", nil), uid)
+	w := httptest.NewRecorder()
+	h.DeletePriceRecordHandler(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestDeletePriceRecordHandler_InvalidRecordID_Returns400(t *testing.T) {
+	h, _, uid, productID := newHandlersWithUser(t)
+	req := withUserID(httptest.NewRequest(http.MethodDelete, "/api/products/"+productID+"/prices/notanumber", nil), uid)
+	w := httptest.NewRecorder()
+	h.DeletePriceRecordHandler(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestDeletePriceRecordHandler_NotOwned_Returns404(t *testing.T) {
+	h, _, uid, _ := newHandlersWithUser(t)
+	// Record ID 999999 does not exist.
+	req := withUserID(httptest.NewRequest(http.MethodDelete, "/api/products/any/prices/999999", nil), uid)
+	w := httptest.NewRecorder()
+	h.DeletePriceRecordHandler(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestDeletePriceRecordHandler_Success_ReturnsOK(t *testing.T) {
+	h, s, uid, productID := newHandlersWithUser(t)
+
+	// Retrieve the seeded product to get the actual record ID.
+	product, err := s.GetProductByID(uid, productID)
+	if err != nil || product == nil || len(product.PriceHistory) == 0 {
+		t.Fatalf("get seeded product: err=%v product=%v", err, product)
+	}
+	recordID := product.PriceHistory[0].RecordID
+
+	req := withUserID(
+		httptest.NewRequest(http.MethodDelete, "/api/products/"+productID+"/prices/"+
+			strconv.FormatInt(recordID, 10), nil),
+		uid,
+	)
+	w := httptest.NewRecorder()
+	h.DeletePriceRecordHandler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Record must no longer exist.
+	updated, err := s.GetProductByID(uid, productID)
+	if err != nil {
+		t.Fatalf("get product after delete: %v", err)
+	}
+	for _, r := range updated.PriceHistory {
+		if r.RecordID == recordID {
+			t.Errorf("record %d still present after deletion", recordID)
+		}
+	}
+}
+
 func TestChangePasswordHandler_Success_AllowsLoginWithNewPassword(t *testing.T) {
 	h := newAuthHandlers(t)
 	uid := registerAndGetID(t, h, "pwduser3", "OldPassword1")
@@ -1219,5 +1296,78 @@ func TestChangePasswordHandler_Success_AllowsLoginWithNewPassword(t *testing.T) 
 	h.LoginHandler(wNew, httptest.NewRequest(http.MethodPost, "/api/auth/login", newLogin))
 	if wNew.Code != http.StatusOK {
 		t.Errorf("new password: expected 200, got %d", wNew.Code)
+	}
+}
+
+func TestIPCHandler_MissingFrom_Returns400(t *testing.T) {
+	h := newHandlers(t)
+	w := httptest.NewRecorder()
+	h.IPCHandler(w, httptest.NewRequest(http.MethodGet, "/api/ipc", nil))
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestIPCHandler_InvalidFrom_Returns400(t *testing.T) {
+	h := newHandlers(t)
+	for _, bad := range []string{"abc", "1999", "99999"} {
+		w := httptest.NewRecorder()
+		h.IPCHandler(w, httptest.NewRequest(http.MethodGet, "/api/ipc?from="+bad, nil))
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("from=%s: expected 400, got %d", bad, w.Code)
+		}
+	}
+}
+
+func TestIPCHandler_MethodNotAllowed(t *testing.T) {
+	h := newHandlers(t)
+	w := httptest.NewRecorder()
+	h.IPCHandler(w, httptest.NewRequest(http.MethodPost, "/api/ipc?from=2024", nil))
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestIPCHandler_ValidFrom_ReturnsAccumulatedRate(t *testing.T) {
+	h := newHandlers(t)
+	w := httptest.NewRecorder()
+	h.IPCHandler(w, httptest.NewRequest(http.MethodGet, "/api/ipc?from=2025", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var result struct {
+		FromYear        int     `json:"from_year"`
+		ToYear          int     `json:"to_year"`
+		AccumulatedRate float64 `json:"accumulated_rate"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if result.FromYear != 2025 {
+		t.Errorf("from_year: want 2025, got %d", result.FromYear)
+	}
+	if result.AccumulatedRate <= 0 {
+		t.Errorf("accumulated_rate should be positive, got %f", result.AccumulatedRate)
+	}
+}
+
+func TestIPCHandler_MultiYearCompoundFormula(t *testing.T) {
+	h := newHandlers(t)
+	// from=2024: (1+0.028)*(1+0.025) - 1 = 0.0537
+	w := httptest.NewRecorder()
+	h.IPCHandler(w, httptest.NewRequest(http.MethodGet, "/api/ipc?from=2024", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var result struct {
+		AccumulatedRate float64 `json:"accumulated_rate"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	expected := (1+0.028)*(1+0.025) - 1
+	diff := result.AccumulatedRate - expected
+	if diff > 0.0001 || diff < -0.0001 {
+		t.Errorf("accumulated_rate: want ~%.4f, got %.4f", expected, result.AccumulatedRate)
 	}
 }

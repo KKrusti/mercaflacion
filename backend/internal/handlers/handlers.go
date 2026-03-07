@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -305,9 +306,13 @@ func (h *Handlers) ChangePasswordHandler(w http.ResponseWriter, r *http.Request)
 
 // --- Product handlers ---
 
-// ProductRouter dispatches /api/products/{id} and /api/products/{id}/image
-// to the appropriate handler based on the request method and path suffix.
+// ProductRouter dispatches /api/products/{id}, /api/products/{id}/image, and
+// /api/products/{id}/prices/{recordID} to the appropriate handler.
 func (h *Handlers) ProductRouter(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.URL.Path, "/prices/") {
+		h.DeletePriceRecordHandler(w, r)
+		return
+	}
 	if strings.HasSuffix(r.URL.Path, "/image") {
 		h.ProductImageHandler(w, r)
 		return
@@ -440,6 +445,45 @@ func (h *Handlers) ProductImageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]string{"id": id, "imageUrl": req.ImageURL}); err != nil {
 		log.Printf("handlers: encode image response: %v", err)
+	}
+}
+
+// DeletePriceRecordHandler handles DELETE /api/products/{id}/prices/{recordID}.
+// Removes a single price record that belongs to the authenticated user's household.
+func (h *Handlers) DeletePriceRecordHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Path: /api/products/{productID}/prices/{recordID}
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/products/")
+	parts := strings.SplitN(trimmed, "/prices/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		http.Error(w, "Bad request: invalid path", http.StatusBadRequest)
+		return
+	}
+	recordID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		http.Error(w, "Bad request: recordId must be an integer", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.store.DeletePriceRecord(recordID, userID); err != nil {
+		log.Printf("handlers: delete price record %d for user %d: %v", recordID, userID, err)
+		http.Error(w, "Not found: record not found or not owned by user", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
+		log.Printf("handlers: encode delete price record response: %v", err)
 	}
 }
 
@@ -717,5 +761,43 @@ func (h *Handlers) HouseholdAcceptHandler(w http.ResponseWriter, r *http.Request
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
 		log.Printf("handlers: encode accept response: %v", err)
+	}
+}
+
+// IPCHandler handles GET /api/ipc?from=<year> and returns the compound
+// interannual IPC for Catalonia accumulated from the given year to the most
+// recent available year in the database.
+func (h *Handlers) IPCHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	fromStr := r.URL.Query().Get("from")
+	if fromStr == "" {
+		http.Error(w, "missing 'from' query parameter", http.StatusBadRequest)
+		return
+	}
+	fromYear, err := strconv.Atoi(fromStr)
+	currentYear := time.Now().Year()
+	if err != nil || fromYear < 2000 || fromYear > currentYear {
+		http.Error(w, "invalid 'from' year", http.StatusBadRequest)
+		return
+	}
+
+	rate, toYear, err := h.store.GetAccumulatedIPC(fromYear)
+	if err != nil {
+		log.Printf("handlers: get accumulated ipc from %d: %v", fromYear, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	result := models.IPCResult{
+		FromYear:        fromYear,
+		ToYear:          toYear,
+		AccumulatedRate: rate,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		log.Printf("handlers: encode ipc response: %v", err)
 	}
 }

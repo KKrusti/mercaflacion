@@ -208,6 +208,33 @@ func migrate(db *sql.DB) error {
 		}
 	}
 
+	// m11: IPC (Consumer Price Index) rates for Catalonia, used to contextualise
+	// product price changes against general inflation.
+	// Rates are the annual interannual average (decimal, e.g. 0.025 = 2.5%).
+	// Source: IDESCAT / INE. Seed only adds rows that do not exist yet so that
+	// future corrections can be applied by updating the row directly.
+	m11 := `
+		CREATE TABLE IF NOT EXISTS ipc_rates (
+			year INTEGER PRIMARY KEY,
+			rate REAL    NOT NULL  -- annual interannual rate as decimal (e.g. 0.028 for 2.8%)
+		);
+		INSERT OR IGNORE INTO ipc_rates (year, rate) VALUES
+			(2015, -0.003),
+			(2016, -0.002),
+			(2017,  0.019),
+			(2018,  0.017),
+			(2019,  0.008),
+			(2020, -0.003),
+			(2021,  0.031),
+			(2022,  0.084),
+			(2023,  0.035),
+			(2024,  0.028),
+			(2025,  0.025);
+	`
+	if _, err := db.Exec(m11); err != nil {
+		return fmt.Errorf("migrate m11: %w", err)
+	}
+
 	return nil
 }
 

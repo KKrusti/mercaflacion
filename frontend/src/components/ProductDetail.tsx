@@ -9,12 +9,14 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { Product } from '../types';
-import { getProduct, updateProductImage } from '../api/products';
+import { getProduct, updateProductImage, deletePriceRecord, getAccumulatedIPC } from '../api/products';
+import type { IPCResult } from '../api/products';
 import ProductImage from './ProductImage';
 
 interface ProductDetailProps {
   productId: string;
   onBack: () => void;
+  token?: string | null;
 }
 
 interface ChartDataPoint {
@@ -54,6 +56,17 @@ function ArrowDownIcon() {
     <svg viewBox="0 0 16 16" fill="currentColor" width="12" height="12" aria-hidden="true">
       <polyline points="8 13 13 8 3 8" strokeLinejoin="round" />
       <line x1="8" y1="13" x2="8" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="14" height="14">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
     </svg>
   );
 }
@@ -238,10 +251,14 @@ function PriceChangeBadge({ firstPrice, currentPrice }: PriceChangeBadgeProps) {
   );
 }
 
-export default function ProductDetail({ productId, onBack }: ProductDetailProps) {
+export default function ProductDetail({ productId, onBack, token }: ProductDetailProps) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
+  const [ipc, setIpc] = useState<IPCResult | null>(null);
+  const [confirmingRecordId, setConfirmingRecordId] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -261,6 +278,42 @@ export default function ProductDetail({ productId, onBack }: ProductDetailProps)
       cancelled = true;
     };
   }, [productId]);
+
+  useEffect(() => {
+    if (!product || product.priceHistory.length === 0) return;
+    let cancelled = false;
+    const fromYear = new Date(product.priceHistory[0].date).getFullYear();
+    getAccumulatedIPC(fromYear)
+      .then((data) => { if (!cancelled) setIpc(data); })
+      .catch(() => { /* IPC is optional context; silently ignore failures */ });
+    return () => { cancelled = true; };
+  }, [product]);
+
+  async function handleDeleteRecord(recordId: number) {
+    if (!product) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deletePriceRecord(product.id, recordId);
+      setConfirmingRecordId(null);
+      setProduct((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          priceHistory: prev.priceHistory.filter((r) => r.recordId !== recordId),
+        };
+        updated.currentPrice =
+          updated.priceHistory.length > 0
+            ? updated.priceHistory[updated.priceHistory.length - 1].price
+            : 0;
+        return updated;
+      });
+    } catch {
+      setDeleteError('No se pudo eliminar el registro. Inténtalo de nuevo.');
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   if (loading) {
     return <div className="loading">Cargando producto...</div>;
@@ -342,6 +395,27 @@ export default function ProductDetail({ productId, onBack }: ProductDetailProps)
               currentPrice={product.priceHistory[product.priceHistory.length - 1].price}
             />
           )}
+          {product.priceHistory.length >= 2 && (() => {
+            const maxRecord = product.priceHistory.reduce((a, b) => b.price > a.price ? b : a);
+            return (
+              <div className="detail-header__max-price">
+                <span className="detail-header__max-price-label">Máx.</span>
+                <span className="detail-header__max-price-value">{formatPrice(maxRecord.price)}</span>
+                <span className="detail-header__max-price-date">{formatDateFull(maxRecord.date)}</span>
+              </div>
+            );
+          })()}
+          {ipc !== null && ipc.accumulated_rate !== 0 && (
+            <div className="detail-header__ipc">
+              <span className="detail-header__ipc-label">
+                IPC Catalunya {ipc.from_year}–{ipc.to_year}
+              </span>
+              <span className="detail-header__ipc-value">
+                {ipc.accumulated_rate > 0 ? '+' : ''}
+                {(ipc.accumulated_rate * 100).toFixed(1).replace('.', ',')}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -393,6 +467,9 @@ export default function ProductDetail({ productId, onBack }: ProductDetailProps)
 
       <div>
         <h3 className="price-table-section__title">Historial de precios</h3>
+        {deleteError && (
+          <p className="price-record-delete-error" role="alert">{deleteError}</p>
+        )}
         <div className="price-table-wrapper">
           <table className="price-table">
             <thead>
@@ -400,16 +477,52 @@ export default function ProductDetail({ productId, onBack }: ProductDetailProps)
                 <th>Fecha</th>
                 <th>Precio</th>
                 <th>Tienda</th>
+                {token && <th className="action-col"></th>}
               </tr>
             </thead>
             <tbody>
-              {[...product.priceHistory].reverse().map((record, i) => (
-                <tr key={i}>
-                  <td>{formatDateFull(record.date)}</td>
-                  <td className="price-cell">{formatPrice(record.price)}</td>
-                  <td className="store-cell">{record.store || '—'}</td>
-                </tr>
-              ))}
+              {[...product.priceHistory].reverse().map((record, i) => {
+                const isConfirming = record.recordId != null && confirmingRecordId === record.recordId;
+                return (
+                  <tr key={record.recordId ?? i} className={isConfirming ? 'price-record--confirming' : undefined}>
+                    <td>{formatDateFull(record.date)}</td>
+                    <td className="price-cell">{formatPrice(record.price)}</td>
+                    <td className="store-cell">{record.store || '—'}</td>
+                    {token && (
+                      <td className="action-col">
+                        {record.recordId != null && !isConfirming && (
+                          <button
+                            className="price-record-delete-btn"
+                            onClick={() => { setConfirmingRecordId(record.recordId!); setDeleteError(null); }}
+                            aria-label={`Eliminar registro de ${formatDateFull(record.date)}`}
+                            title="Eliminar este registro"
+                          >
+                            <TrashIcon />
+                          </button>
+                        )}
+                        {isConfirming && (
+                          <span className="price-record-confirm">
+                            <button
+                              className="price-record-confirm__yes"
+                              onClick={() => void handleDeleteRecord(record.recordId!)}
+                              disabled={deleting}
+                            >
+                              {deleting ? '…' : 'Eliminar'}
+                            </button>
+                            <button
+                              className="price-record-confirm__no"
+                              onClick={() => setConfirmingRecordId(null)}
+                              disabled={deleting}
+                            >
+                              Cancelar
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
