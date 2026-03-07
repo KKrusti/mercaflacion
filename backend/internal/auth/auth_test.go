@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"basket-cost/internal/auth"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestHashPassword_And_CheckPassword(t *testing.T) {
@@ -20,6 +21,20 @@ func TestHashPassword_And_CheckPassword(t *testing.T) {
 	}
 	if err := auth.CheckPassword(plain, hash); err != nil {
 		t.Errorf("CheckPassword with correct password: %v", err)
+	}
+}
+
+func TestHashPassword_UsesBcryptCostAtLeast12(t *testing.T) {
+	hash, err := auth.HashPassword("anypassword")
+	if err != nil {
+		t.Fatalf("HashPassword: %v", err)
+	}
+	cost, err := bcrypt.Cost([]byte(hash))
+	if err != nil {
+		t.Fatalf("bcrypt.Cost: %v", err)
+	}
+	if cost < 12 {
+		t.Errorf("bcrypt cost too low: want >= 12, got %d", cost)
 	}
 }
 

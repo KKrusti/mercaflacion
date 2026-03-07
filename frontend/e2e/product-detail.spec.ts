@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { stubProducts, stubProductDetail } from './helpers';
+import { stubProducts, stubProductDetail, loginViaStorage } from './helpers';
 
 const PRODUCT_ID = 'leche-entera-hacendado-1l';
 
 test.beforeEach(async ({ page }) => {
+  await loginViaStorage(page);
   await stubProducts(page);
   await stubProductDetail(page, PRODUCT_ID);
   await page.goto('/');

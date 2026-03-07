@@ -98,6 +98,7 @@ func main() {
 
 	mux.HandleFunc("/api/auth/register", chain(h.RegisterHandler))
 	mux.HandleFunc("/api/auth/login", chain(h.LoginHandler))
+	mux.HandleFunc("/api/auth/password", chain(h.ChangePasswordHandler))
 	mux.HandleFunc("/api/products", chain(h.SearchHandler))
 	mux.HandleFunc("/api/products/", chain(h.ProductRouter))
 	mux.HandleFunc("/api/tickets", chain(h.TicketHandler))

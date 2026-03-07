@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { stubProducts, stubProductDetail } from './helpers';
+import { stubProducts, stubProductDetail, loginViaStorage } from './helpers';
 
 const PRODUCT_ID = 'leche-entera-hacendado-1l';
-const NEW_IMAGE_URL = 'https://prod.mercadona.com/images/leche.jpg';
+const NEW_IMAGE_URL = 'https://tienda.mercadona.es/product/60722/leche';
 
 test.beforeEach(async ({ page }) => {
+  await loginViaStorage(page);
   await stubProducts(page);
   await stubProductDetail(page, PRODUCT_ID);
   await page.goto('/');
@@ -38,7 +39,11 @@ test('saving calls PATCH and closes the input', async ({ page }) => {
   let patchCalled = false;
   await page.route(`/api/products/${PRODUCT_ID}/image`, (route) => {
     patchCalled = true;
-    route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ imageUrl: 'https://prod.mercadona.com/img/leche.jpg' }),
+    });
   });
 
   await page.getByRole('button', { name: 'Cambiar imagen del producto' }).click();
@@ -51,7 +56,7 @@ test('saving calls PATCH and closes the input', async ({ page }) => {
 
 test('shows an error if the server returns an error when saving', async ({ page }) => {
   await page.route(`/api/products/${PRODUCT_ID}/image`, (route) =>
-    route.fulfill({ status: 500, body: 'Internal Server Error' }),
+    route.fulfill({ status: 500, body: '' }),
   );
 
   await page.getByRole('button', { name: 'Cambiar imagen del producto' }).click();

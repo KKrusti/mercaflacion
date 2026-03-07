@@ -32,10 +32,10 @@ const mockProduct: Product = {
 
 const AUTH_KEY = 'mercaflacion_auth';
 
-function loginAs(username: string) {
+function loginAs(username: string, email?: string) {
   localStorage.setItem(
     AUTH_KEY,
-    JSON.stringify({ user: { username }, token: 'test-token' }),
+    JSON.stringify({ user: { username, email }, token: 'test-token' }),
   );
 }
 

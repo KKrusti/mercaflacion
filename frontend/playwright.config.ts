@@ -6,6 +6,19 @@ const ldLibraryPath = process.env.LD_LIBRARY_PATH
   ? `${PLAYWRIGHT_LIBS}:${process.env.LD_LIBRARY_PATH}`
   : PLAYWRIGHT_LIBS;
 
+// WSLg provides X11/Wayland sockets but doesn't always export DISPLAY into the
+// shell that runs `task`. Fall back to the WSLg defaults when the variables are
+// missing so that headed mode works without manual export.
+const display = process.env.DISPLAY || ':0';
+const waylandDisplay = process.env.WAYLAND_DISPLAY || 'wayland-0';
+const xdgRuntimeDir = process.env.XDG_RUNTIME_DIR || '/mnt/wslg/runtime-dir';
+
+// In headed mode, slow down actions so interactions are visible.
+// Override with SLOW_MO=<ms> env var (e.g. SLOW_MO=200 for faster observation).
+const slowMo = process.env.SLOW_MO !== undefined
+  ? parseInt(process.env.SLOW_MO, 10)
+  : process.env.PW_HEADED === '1' ? 600 : 0;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -19,8 +32,12 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     launchOptions: {
+      slowMo,
       env: {
         LD_LIBRARY_PATH: ldLibraryPath,
+        DISPLAY: display,
+        WAYLAND_DISPLAY: waylandDisplay,
+        XDG_RUNTIME_DIR: xdgRuntimeDir,
       },
     },
   },
@@ -48,5 +65,10 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    // Propagate PATH so npm/node are found when spawned as a subprocess.
+    // Needed when node is installed in a custom location (e.g. ~/node/bin).
+    env: {
+      PATH: process.env.PATH ?? '',
+    },
   },
 });

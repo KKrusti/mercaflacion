@@ -881,3 +881,106 @@ func TestLoginHandler_Success_ReturnsTokenAndUserID(t *testing.T) {
 		t.Errorf("expected username 'loginok', got %q", resp.Username)
 	}
 }
+
+// --- ChangePasswordHandler ---
+
+// withUserID injects userID into the request context to simulate the auth middleware.
+func withUserID(r *http.Request, userID int64) *http.Request {
+	ctx := context.WithValue(r.Context(), handlers.UserIDContextKey{}, userID)
+	return r.WithContext(ctx)
+}
+
+// registerAndGetID is a helper that registers a user and returns their ID.
+func registerAndGetID(t *testing.T, h *handlers.Handlers, username, password string) int64 {
+	t.Helper()
+	body := jsonBody(t, map[string]string{"username": username, "password": password})
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/register", body)
+	w := httptest.NewRecorder()
+	h.RegisterHandler(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register %q: expected 201, got %d", username, w.Code)
+	}
+	var resp struct {
+		UserID int64 `json:"userId"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode register response: %v", err)
+	}
+	return resp.UserID
+}
+
+func TestChangePasswordHandler_MethodNotAllowed(t *testing.T) {
+	h := newAuthHandlers(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/password", nil)
+	w := httptest.NewRecorder()
+	h.ChangePasswordHandler(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestChangePasswordHandler_Unauthenticated_ReturnsUnauthorized(t *testing.T) {
+	h := newAuthHandlers(t)
+	body := jsonBody(t, map[string]string{"currentPassword": "old", "newPassword": "newpassword1"})
+	req := httptest.NewRequest(http.MethodPatch, "/api/auth/password", body)
+	// No userID in context (unauthenticated).
+	w := httptest.NewRecorder()
+	h.ChangePasswordHandler(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestChangePasswordHandler_ShortNewPassword_ReturnsBadRequest(t *testing.T) {
+	h := newAuthHandlers(t)
+	uid := registerAndGetID(t, h, "pwduser", "originalpass")
+	body := jsonBody(t, map[string]string{"currentPassword": "originalpass", "newPassword": "short"})
+	req := withUserID(httptest.NewRequest(http.MethodPatch, "/api/auth/password", body), uid)
+	w := httptest.NewRecorder()
+	h.ChangePasswordHandler(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for short new password, got %d", w.Code)
+	}
+}
+
+func TestChangePasswordHandler_WrongCurrentPassword_ReturnsUnauthorized(t *testing.T) {
+	h := newAuthHandlers(t)
+	uid := registerAndGetID(t, h, "pwduser2", "correctpass1")
+	body := jsonBody(t, map[string]string{"currentPassword": "wrongpass", "newPassword": "newpassword1"})
+	req := withUserID(httptest.NewRequest(http.MethodPatch, "/api/auth/password", body), uid)
+	w := httptest.NewRecorder()
+	h.ChangePasswordHandler(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 for wrong current password, got %d", w.Code)
+	}
+}
+
+func TestChangePasswordHandler_Success_AllowsLoginWithNewPassword(t *testing.T) {
+	h := newAuthHandlers(t)
+	uid := registerAndGetID(t, h, "pwduser3", "oldpassword1")
+
+	// Change the password.
+	body := jsonBody(t, map[string]string{"currentPassword": "oldpassword1", "newPassword": "newpassword1"})
+	req := withUserID(httptest.NewRequest(http.MethodPatch, "/api/auth/password", body), uid)
+	w := httptest.NewRecorder()
+	h.ChangePasswordHandler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// Old password must no longer work.
+	oldLogin := jsonBody(t, map[string]string{"username": "pwduser3", "password": "oldpassword1"})
+	wOld := httptest.NewRecorder()
+	h.LoginHandler(wOld, httptest.NewRequest(http.MethodPost, "/api/auth/login", oldLogin))
+	if wOld.Code != http.StatusUnauthorized {
+		t.Errorf("old password: expected 401, got %d", wOld.Code)
+	}
+
+	// New password must work.
+	newLogin := jsonBody(t, map[string]string{"username": "pwduser3", "password": "newpassword1"})
+	wNew := httptest.NewRecorder()
+	h.LoginHandler(wNew, httptest.NewRequest(http.MethodPost, "/api/auth/login", newLogin))
+	if wNew.Code != http.StatusOK {
+		t.Errorf("new password: expected 200, got %d", wNew.Code)
+	}
+}

@@ -126,9 +126,8 @@ function ImageEditor({ productId, onSaved }: ImageEditorProps) {
       const resolvedUrl = await updateProductImage(productId, trimmedUrl);
       onSaved(resolvedUrl);
       setOpen(false);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      setError(msg || 'No se pudo guardar la imagen. Inténtalo de nuevo.');
+    } catch {
+      setError('No se pudo guardar la imagen. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }

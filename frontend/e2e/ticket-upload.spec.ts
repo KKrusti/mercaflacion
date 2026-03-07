@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubProducts } from './helpers';
+import { stubProducts, loginViaStorage } from './helpers';
 import path from 'path';
 import fs from 'fs';
 
@@ -8,6 +8,7 @@ import fs from 'fs';
 const FAKE_PDF = Buffer.from('%PDF-1.4 fake content for testing');
 
 test.beforeEach(async ({ page }) => {
+  await loginViaStorage(page);
   await stubProducts(page);
   await page.goto('/');
 });

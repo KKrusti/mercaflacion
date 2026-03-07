@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { register, login, logout } from './auth';
+import { register, login, logout, changePassword } from './auth';
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -21,11 +21,19 @@ beforeEach(() => {
 describe('register', () => {
   it('returns token and user on success', async () => {
     mockFetch.mockResolvedValue(
-      makeResponse(201, { token: 'tok123', userId: 1, username: 'carlos' }),
+      makeResponse(201, { token: 'tok123', userId: 1, username: 'carlos', email: 'c@example.com' }),
+    );
+    const result = await register('carlos', 'securepassword', 'c@example.com');
+    expect(result.token).toBe('tok123');
+    expect(result.user).toEqual({ userId: 1, username: 'carlos', email: 'c@example.com' });
+  });
+
+  it('returns user without email when backend omits it', async () => {
+    mockFetch.mockResolvedValue(
+      makeResponse(201, { token: 'tok', userId: 2, username: 'carlos' }),
     );
     const result = await register('carlos', 'securepassword');
-    expect(result.token).toBe('tok123');
-    expect(result.user).toEqual({ userId: 1, username: 'carlos' });
+    expect(result.user.email).toBeUndefined();
   });
 
   it('throws a localized error when the username already exists (409)', async () => {
@@ -51,12 +59,12 @@ describe('register', () => {
     mockFetch.mockResolvedValue(
       makeResponse(201, { token: 'tok', userId: 2, username: 'user' }),
     );
-    await register('user', 'password123');
+    await register('user', 'password123', 'u@example.com');
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/auth/register',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ username: 'user', password: 'password123' }),
+        body: JSON.stringify({ username: 'user', password: 'password123', email: 'u@example.com' }),
       }),
     );
   });
@@ -65,11 +73,11 @@ describe('register', () => {
 describe('login', () => {
   it('returns token and user on success', async () => {
     mockFetch.mockResolvedValue(
-      makeResponse(200, { token: 'tok456', userId: 5, username: 'maria' }),
+      makeResponse(200, { token: 'tok456', userId: 5, username: 'maria', email: 'm@example.com' }),
     );
     const result = await login('maria', 'mypassword');
     expect(result.token).toBe('tok456');
-    expect(result.user).toEqual({ userId: 5, username: 'maria' });
+    expect(result.user).toEqual({ userId: 5, username: 'maria', email: 'm@example.com' });
   });
 
   it('throws a localized error when credentials are invalid (401)', async () => {
@@ -92,6 +100,38 @@ describe('login', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ username: 'u', password: 'p' }),
+      }),
+    );
+  });
+});
+
+describe('changePassword', () => {
+  it('resolves on success (200)', async () => {
+    mockFetch.mockResolvedValue(makeResponse(200, { ok: true }));
+    await expect(changePassword('old', 'newpass1', 'tok')).resolves.toBeUndefined();
+  });
+
+  it('throws a localized error when current password is wrong (401)', async () => {
+    mockFetch.mockResolvedValue(makeResponse(401, 'Unauthorized'));
+    await expect(changePassword('wrong', 'newpass1', 'tok')).rejects.toThrow(
+      'La contraseña actual es incorrecta',
+    );
+  });
+
+  it('throws a generic error on server error (500)', async () => {
+    mockFetch.mockResolvedValue(makeResponse(500, 'Internal server error'));
+    await expect(changePassword('old', 'new', 'tok')).rejects.toThrow('Error al cambiar la contraseña');
+  });
+
+  it('calls /api/auth/password with PATCH and Authorization header', async () => {
+    mockFetch.mockResolvedValue(makeResponse(200, { ok: true }));
+    await changePassword('oldpwd', 'newpwd1', 'my-token');
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/auth/password',
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: expect.objectContaining({ Authorization: 'Bearer my-token' }),
+        body: JSON.stringify({ currentPassword: 'oldpwd', newPassword: 'newpwd1' }),
       }),
     );
   });

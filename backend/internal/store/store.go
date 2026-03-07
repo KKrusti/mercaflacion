@@ -14,9 +14,13 @@ import (
 // Both the real SQLite implementation and test fakes satisfy it.
 type Store interface {
 	// CreateUser inserts a new user and returns its generated ID.
-	CreateUser(username, passwordHash string) (int64, error)
+	CreateUser(username, email, passwordHash string) (int64, error)
 	// GetUserByUsername returns the user with the given username, or nil if not found.
 	GetUserByUsername(username string) (*models.User, error)
+	// GetUserByID returns the user with the given ID, or nil if not found.
+	GetUserByID(id int64) (*models.User, error)
+	// UpdateUserPassword replaces the stored password hash for userID.
+	UpdateUserPassword(userID int64, passwordHash string) error
 
 	// SearchProducts returns products whose price records belong to userID.
 	// An empty query returns all matching products.
@@ -61,10 +65,10 @@ func New(db *sql.DB) *SQLiteStore {
 
 // CreateUser inserts a new user and returns the auto-generated ID.
 // Returns an error if the username is already taken (UNIQUE constraint).
-func (s *SQLiteStore) CreateUser(username, passwordHash string) (int64, error) {
+func (s *SQLiteStore) CreateUser(username, email, passwordHash string) (int64, error) {
 	res, err := s.db.Exec(
-		`INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)`,
-		username, passwordHash, time.Now().UTC().Format(time.RFC3339),
+		`INSERT INTO users (username, email, password_hash, created_at) VALUES (?, ?, ?, ?)`,
+		username, email, passwordHash, time.Now().UTC().Format(time.RFC3339),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("create user %q: %w", username, err)
@@ -81,8 +85,8 @@ func (s *SQLiteStore) GetUserByUsername(username string) (*models.User, error) {
 	var u models.User
 	var createdAt string
 	err := s.db.QueryRow(
-		`SELECT id, username, password_hash, created_at FROM users WHERE username = ?`, username,
-	).Scan(&u.ID, &u.Username, &u.PasswordHash, &createdAt)
+		`SELECT id, username, email, password_hash, created_at FROM users WHERE username = ?`, username,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &createdAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -94,6 +98,37 @@ func (s *SQLiteStore) GetUserByUsername(username string) (*models.User, error) {
 		return nil, fmt.Errorf("parse user created_at: %w", err)
 	}
 	return &u, nil
+}
+
+// GetUserByID returns the user with the given ID, or nil if not found.
+func (s *SQLiteStore) GetUserByID(id int64) (*models.User, error) {
+	var u models.User
+	var createdAt string
+	err := s.db.QueryRow(
+		`SELECT id, username, email, password_hash, created_at FROM users WHERE id = ?`, id,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &createdAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get user by id %d: %w", id, err)
+	}
+	u.CreatedAt, err = time.Parse(time.RFC3339, createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("parse user created_at: %w", err)
+	}
+	return &u, nil
+}
+
+// UpdateUserPassword replaces the stored password hash for the given user.
+func (s *SQLiteStore) UpdateUserPassword(userID int64, passwordHash string) error {
+	_, err := s.db.Exec(
+		`UPDATE users SET password_hash = ? WHERE id = ?`, passwordHash, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("update password for user %d: %w", userID, err)
+	}
+	return nil
 }
 
 // InsertProduct inserts a product and all its price records inside a single

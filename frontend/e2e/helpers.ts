@@ -1,5 +1,18 @@
 import type { Page } from '@playwright/test';
 
+const AUTH_STORAGE_KEY = 'mercaflacion_auth';
+
+// Injects a fake authenticated session into localStorage via addInitScript so
+// React reads it before mounting. Must be called before page.goto().
+export async function loginViaStorage(page: Page) {
+  await page.addInitScript((key) => {
+    localStorage.setItem(key, JSON.stringify({
+      user: { userId: 1, username: 'testuser' },
+      token: 'test-token',
+    }));
+  }, AUTH_STORAGE_KEY);
+}
+
 // Stubs the /api/products endpoint with an empty array by default.
 export async function stubEmptyProducts(page: Page) {
   await page.route('/api/products*', (route) =>

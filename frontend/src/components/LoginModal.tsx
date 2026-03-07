@@ -12,6 +12,7 @@ type Mode = 'login' | 'register';
 export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +24,7 @@ export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
     try {
       const result = mode === 'login'
         ? await login(username, password)
-        : await register(username, password);
+        : await register(username, password, email);
       onAuth({ token: result.token, user: result.user });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -34,6 +35,12 @@ export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
 
   function handleOverlayClick(e: React.MouseEvent) {
     if (e.target === e.currentTarget) onClose();
+  }
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setEmail('');
   }
 
   return (
@@ -54,14 +61,14 @@ export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
         <div className="modal__tabs">
           <button
             className={`modal__tab${mode === 'login' ? ' modal__tab--active' : ''}`}
-            onClick={() => { setMode('login'); setError(null); }}
+            onClick={() => switchMode('login')}
             type="button"
           >
             Entrar
           </button>
           <button
             className={`modal__tab${mode === 'register' ? ' modal__tab--active' : ''}`}
-            onClick={() => { setMode('register'); setError(null); }}
+            onClick={() => switchMode('register')}
             type="button"
           >
             Registrarse
@@ -84,6 +91,22 @@ export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
               placeholder="Nombre de usuario"
             />
           </div>
+
+          {mode === 'register' && (
+            <div className="modal__field">
+              <label className="modal__label" htmlFor="auth-email">Correo electrónico <span className="modal__optional">(opcional)</span></label>
+              <input
+                id="auth-email"
+                className="modal__input"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                placeholder="tu@correo.com"
+              />
+            </div>
+          )}
 
           <div className="modal__field">
             <label className="modal__label" htmlFor="auth-password">Contraseña</label>

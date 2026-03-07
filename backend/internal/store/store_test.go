@@ -27,7 +27,7 @@ func newTestStore(t *testing.T) *store.SQLiteStore {
 // Use this whenever a test needs a valid user_id for FK constraints.
 func createTestUser(t *testing.T, s *store.SQLiteStore) int64 {
 	t.Helper()
-	id, err := s.CreateUser("testuser", "$2a$12$fakehashfortesting000000000000000000000000000000000000")
+	id, err := s.CreateUser("testuser", "", "$2a$12$fakehashfortesting000000000000000000000000000000000000")
 	if err != nil {
 		t.Fatalf("createTestUser: %v", err)
 	}
@@ -960,5 +960,62 @@ func TestGetBiggestPriceIncreases_RespectsLimit(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Errorf("want 2 (limit respected), got %d", len(got))
+	}
+}
+
+// ---------- CreateUser / GetUserByID ----------
+
+func TestCreateUser_WithEmail_StoresEmail(t *testing.T) {
+	s := newTestStore(t)
+	id, err := s.CreateUser("emailuser", "user@example.com", "$2a$12$fakehashfortesting000000000000000000000000000000000000")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	u, err := s.GetUserByID(id)
+	if err != nil {
+		t.Fatalf("GetUserByID: %v", err)
+	}
+	if u == nil {
+		t.Fatal("expected user, got nil")
+	}
+	if u.Email != "user@example.com" {
+		t.Errorf("Email: want %q, got %q", "user@example.com", u.Email)
+	}
+	if u.Username != "emailuser" {
+		t.Errorf("Username: want %q, got %q", "emailuser", u.Username)
+	}
+}
+
+func TestGetUserByID_UnknownID_ReturnsNil(t *testing.T) {
+	s := newTestStore(t)
+	u, err := s.GetUserByID(9999)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if u != nil {
+		t.Errorf("expected nil for unknown ID, got %+v", u)
+	}
+}
+
+// ---------- UpdateUserPassword ----------
+
+func TestUpdateUserPassword_PasswordHashChanges(t *testing.T) {
+	s := newTestStore(t)
+	id, err := s.CreateUser("pwduser", "", "$2a$12$fakehashfortesting000000000000000000000000000000000000")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	newHash := "$2a$12$newhashfortesting0000000000000000000000000000000000000"
+	if err := s.UpdateUserPassword(id, newHash); err != nil {
+		t.Fatalf("UpdateUserPassword: %v", err)
+	}
+
+	u, err := s.GetUserByID(id)
+	if err != nil {
+		t.Fatalf("GetUserByID: %v", err)
+	}
+	if u.PasswordHash != newHash {
+		t.Errorf("PasswordHash: want %q, got %q", newHash, u.PasswordHash)
 	}
 }

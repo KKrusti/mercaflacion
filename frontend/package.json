@@ -11,7 +11,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "PW_HEADED=1 playwright test --headed"
   },
   "dependencies": {
     "react": "^18.3.1",

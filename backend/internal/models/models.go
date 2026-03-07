@@ -6,6 +6,7 @@ import "time"
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
+	Email        string    `json:"email,omitempty"`
 	PasswordHash string    `json:"-"` // never serialised to JSON
 	CreatedAt    time.Time `json:"createdAt"`
 }

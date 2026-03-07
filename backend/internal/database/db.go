@@ -134,6 +134,12 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("migrate m6 products.image_url_locked: %w", err)
 	}
 
+	// m7: optional email address per user account.
+	if err := addColumnIfMissing(db, "users", "email",
+		`ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''`); err != nil {
+		return fmt.Errorf("migrate m7 users.email: %w", err)
+	}
+
 	return nil
 }
 

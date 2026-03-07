@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { stubProducts, stubAnalytics, stubProductDetail } from './helpers';
+import { stubProducts, stubAnalytics, stubProductDetail, loginViaStorage } from './helpers';
 
 test.beforeEach(async ({ page }) => {
+  await loginViaStorage(page);
   await stubProducts(page);
   await stubAnalytics(page);
   await page.goto('/');

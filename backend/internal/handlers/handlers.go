@@ -61,12 +61,14 @@ func New(s store.Store, imp *ticket.Importer, enr EnrichScheduler) *Handlers {
 type registerRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 type loginResponse struct {
 	Token    string `json:"token"`
 	UserID   int64  `json:"userId"`
 	Username string `json:"username"`
+	Email    string `json:"email,omitempty"`
 }
 
 func (h *Handlers) RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +100,7 @@ func (h *Handlers) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, err := h.store.CreateUser(req.Username, hash)
+	userID, err := h.store.CreateUser(req.Username, strings.TrimSpace(req.Email), hash)
 	if err != nil {
 		// Treat duplicate username as a client error.
 		if strings.Contains(err.Error(), "UNIQUE") {
@@ -119,7 +121,12 @@ func (h *Handlers) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(loginResponse{Token: token, UserID: userID, Username: req.Username}); err != nil {
+	if err := json.NewEncoder(w).Encode(loginResponse{
+		Token:    token,
+		UserID:   userID,
+		Username: req.Username,
+		Email:    strings.TrimSpace(req.Email),
+	}); err != nil {
 		log.Printf("handlers: encode register response: %v", err)
 	}
 }
@@ -155,8 +162,78 @@ func (h *Handlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(loginResponse{Token: token, UserID: user.ID, Username: user.Username}); err != nil {
+	if err := json.NewEncoder(w).Encode(loginResponse{
+		Token:    token,
+		UserID:   user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+	}); err != nil {
 		log.Printf("handlers: encode login response: %v", err)
+	}
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// ChangePasswordHandler handles PATCH /api/auth/password.
+// Requires a valid JWT. Verifies the current password and replaces it with the new one.
+func (h *Handlers) ChangePasswordHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad request: invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		http.Error(w, "Bad request: new password must be at least 8 characters", http.StatusBadRequest)
+		return
+	}
+
+	user, err := h.store.GetUserByID(userID)
+	if err != nil {
+		log.Printf("handlers: get user by id %d: %v", userID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if auth.CheckPassword(req.CurrentPassword, user.PasswordHash) != nil {
+		http.Error(w, "Unauthorized: current password is incorrect", http.StatusUnauthorized)
+		return
+	}
+
+	newHash, err := auth.HashPassword(req.NewPassword)
+	if err != nil {
+		log.Printf("handlers: hash new password: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.store.UpdateUserPassword(userID, newHash); err != nil {
+		log.Printf("handlers: update password for user %d: %v", userID, err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
+		log.Printf("handlers: encode change password response: %v", err)
 	}
 }
 

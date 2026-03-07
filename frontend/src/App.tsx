@@ -4,6 +4,7 @@ import ProductDetail from './components/ProductDetail';
 import TicketUploader from './components/TicketUploader';
 import Analytics from './components/Analytics';
 import LoginModal from './components/LoginModal';
+import ChangePasswordModal from './components/ChangePasswordModal';
 import type { ProductBrowserState } from './components/ProductBrowser';
 import type { AuthState } from './types';
 
@@ -63,10 +64,12 @@ function ChevronDownIcon() {
 
 interface UserMenuProps {
   username: string;
+  email?: string;
   onLogout: () => void;
+  onChangePassword: () => void;
 }
 
-function UserMenu({ username, onLogout }: UserMenuProps) {
+function UserMenu({ username, email, onLogout, onChangePassword }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -101,6 +104,18 @@ function UserMenu({ username, onLogout }: UserMenuProps) {
       </button>
       {open && (
         <div className="user-menu__dropdown" role="menu">
+          <div className="user-menu__info">
+            <span className="user-menu__info-name">{username}</span>
+            {email && <span className="user-menu__info-email">{email}</span>}
+          </div>
+          <button
+            type="button"
+            role="menuitem"
+            className="user-menu__item"
+            onClick={() => { setOpen(false); onChangePassword(); }}
+          >
+            Cambiar contraseña
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -125,6 +140,7 @@ export default function App() {
   });
   const [auth, setAuth] = useState<AuthState>(loadAuth);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   function handleSelectProduct(id: string) {
     setSelectedProductId(id);
@@ -167,7 +183,12 @@ export default function App() {
         </p>
         <div className="app-header__actions">
           {auth.user ? (
-            <UserMenu username={auth.user.username} onLogout={handleLogout} />
+            <UserMenu
+              username={auth.user.username}
+              email={auth.user.email}
+              onLogout={handleLogout}
+              onChangePassword={() => setShowChangePasswordModal(true)}
+            />
           ) : (
             <button
               className="auth-btn"
@@ -184,6 +205,13 @@ export default function App() {
 
       {showLoginModal && (
         <LoginModal onAuth={handleAuth} onClose={() => setShowLoginModal(false)} />
+      )}
+
+      {showChangePasswordModal && auth.token && (
+        <ChangePasswordModal
+          token={auth.token}
+          onClose={() => setShowChangePasswordModal(false)}
+        />
       )}
 
       {!auth.user ? (

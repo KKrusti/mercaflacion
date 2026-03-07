@@ -83,14 +83,26 @@ describe('LoginModal', () => {
     );
   });
 
-  it('calls register in register mode', async () => {
+  it('shows email field in register mode', () => {
+    renderModal();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
+    expect(screen.getByLabelText(/correo electrónico/i)).toBeInTheDocument();
+  });
+
+  it('does not show email field in login mode', () => {
+    renderModal();
+    expect(screen.queryByLabelText(/correo electrónico/i)).not.toBeInTheDocument();
+  });
+
+  it('calls register in register mode with username, password and email', async () => {
     mockRegister.mockResolvedValue({ token: 'tok', user: { userId: 3, username: 'nuevo' } });
     const { container } = renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'nuevo' } });
+    fireEvent.change(screen.getByLabelText(/correo electrónico/i), { target: { value: 'nuevo@example.com' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password123' } });
     fireEvent.click(container.querySelector('button[type="submit"]')!);
-    await waitFor(() => expect(mockRegister).toHaveBeenCalledWith('nuevo', 'password123'));
+    await waitFor(() => expect(mockRegister).toHaveBeenCalledWith('nuevo', 'password123', 'nuevo@example.com'));
   });
 
   it('disables the button while loading', async () => {
