@@ -955,6 +955,194 @@ func TestChangePasswordHandler_WrongCurrentPassword_ReturnsUnauthorized(t *testi
 	}
 }
 
+// --- HouseholdHandler ---
+
+func newHouseholdHandlers(t *testing.T) (*handlers.Handlers, *store.SQLiteStore) {
+	t.Helper()
+	db := mustOpenMemDB(t)
+	s := store.New(db)
+	return handlers.New(s, nil, nil), s
+}
+
+func TestHouseholdHandler_GetUnauthenticated_Returns401(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/household", nil)
+	w := httptest.NewRecorder()
+	h.HouseholdHandler(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestHouseholdHandler_GetNoHousehold_ReturnsEmptyMembers(t *testing.T) {
+	h, s := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+	_ = s // ensure store is available if needed
+
+	req := withUserID(httptest.NewRequest(http.MethodGet, "/api/household", nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdHandler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Members []json.RawMessage `json:"members"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Members) != 0 {
+		t.Errorf("expected 0 members for user with no household, got %d", len(resp.Members))
+	}
+}
+
+func TestHouseholdHandler_MethodNotAllowed(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	req := httptest.NewRequest(http.MethodPatch, "/api/household", nil)
+	w := httptest.NewRecorder()
+	h.HouseholdHandler(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
+func TestHouseholdInviteHandler_Unauthenticated_Returns401(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/household/invite", nil)
+	w := httptest.NewRecorder()
+	h.HouseholdInviteHandler(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401, got %d", w.Code)
+	}
+}
+
+func TestHouseholdInviteHandler_ReturnsToken(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+
+	req := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/invite", nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdInviteHandler(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Token) != 64 {
+		t.Errorf("expected 64-char token, got %d chars", len(resp.Token))
+	}
+}
+
+func TestHouseholdAcceptHandler_ValidToken_JoinsHousehold(t *testing.T) {
+	h, s := newHouseholdHandlers(t)
+	uid1 := registerAndGetID(t, h, "alice", "password123")
+	uid2 := registerAndGetID(t, h, "bob", "password123")
+
+	// Alice creates an invitation.
+	invReq := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/invite", nil), uid1)
+	invW := httptest.NewRecorder()
+	h.HouseholdInviteHandler(invW, invReq)
+	var invResp struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(invW.Body).Decode(&invResp); err != nil {
+		t.Fatalf("decode invite: %v", err)
+	}
+
+	// Bob accepts it.
+	acceptReq := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/accept?token="+invResp.Token, nil), uid2)
+	acceptW := httptest.NewRecorder()
+	h.HouseholdAcceptHandler(acceptW, acceptReq)
+	if acceptW.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", acceptW.Code, acceptW.Body.String())
+	}
+
+	// Both should be in the same household now.
+	members, err := s.GetHouseholdMembers(uid1)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if len(members) != 2 {
+		t.Errorf("expected 2 members after accept, got %d", len(members))
+	}
+}
+
+func TestHouseholdAcceptHandler_MissingToken_Returns400(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+	req := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/accept", nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdAcceptHandler(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHouseholdAcceptHandler_InvalidToken_Returns404(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+	req := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/accept?token=notavalidtoken", nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdAcceptHandler(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestHouseholdAcceptHandler_OwnToken_Returns400(t *testing.T) {
+	h, _ := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+
+	invReq := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/invite", nil), uid)
+	invW := httptest.NewRecorder()
+	h.HouseholdInviteHandler(invW, invReq)
+	var invResp struct {
+		Token string `json:"token"`
+	}
+	json.NewDecoder(invW.Body).Decode(&invResp) //nolint:errcheck
+
+	// Same user tries to accept their own invitation.
+	acceptReq := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/accept?token="+invResp.Token, nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdAcceptHandler(w, acceptReq)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHouseholdHandler_DeleteLeaves(t *testing.T) {
+	h, s := newHouseholdHandlers(t)
+	uid := registerAndGetID(t, h, "alice", "password123")
+
+	// Create a household first via invite.
+	invReq := withUserID(httptest.NewRequest(http.MethodPost, "/api/household/invite", nil), uid)
+	h.HouseholdInviteHandler(httptest.NewRecorder(), invReq)
+
+	// Confirm household exists.
+	members, _ := s.GetHouseholdMembers(uid)
+	if len(members) == 0 {
+		t.Fatal("expected household to exist before leave")
+	}
+
+	// Leave.
+	leaveReq := withUserID(httptest.NewRequest(http.MethodDelete, "/api/household", nil), uid)
+	w := httptest.NewRecorder()
+	h.HouseholdHandler(w, leaveReq)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// No household any more.
+	members, _ = s.GetHouseholdMembers(uid)
+	if members != nil {
+		t.Errorf("expected no household after leave, got %+v", members)
+	}
+}
+
 func TestChangePasswordHandler_Success_AllowsLoginWithNewPassword(t *testing.T) {
 	h := newAuthHandlers(t)
 	uid := registerAndGetID(t, h, "pwduser3", "oldpassword1")

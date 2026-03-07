@@ -259,7 +259,8 @@ var catalanToSpanish = map[string]string{
 	"cheesecake":   "cheesecake",
 	"festuc":       "pistacho",
 	"avellana":     "avellana",
-	"cacauet":      "cacahuete",
+	"cacauet":      "cacahuete", // Catalan spelling (without h)
+	"cacahuet":     "cacahuete", // Mercadona receipt spelling (with h)
 	"cacahuete":    "cacahuete",
 	"desgreixat":   "desgrasado",
 	"caramel":      "caramel",
@@ -498,6 +499,16 @@ var catalanToSpanish = map[string]string{
 	"repellent":     "repelente",
 	"antihumitat":   "antihumedad",
 	"joc":           "pack", // "joc antihumitat" = pack antihumedad
+
+	// ── Health & safety ──────────────────────────────────────────────────────
+	"guants":     "guantes",
+	"guant":      "guante",
+	"nitril":     "nitrilo",
+	"nitrils":    "nitrilo",
+	"latex":      "latex",
+	"mascareta":  "mascarilla",
+	"mascaretes": "mascarillas",
+	"proteccio":  "proteccion",
 
 	// ── Pet care ─────────────────────────────────────────────────────────────
 	"gat":      "gato",

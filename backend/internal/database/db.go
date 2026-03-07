@@ -140,6 +140,28 @@ func migrate(db *sql.DB) error {
 		return fmt.Errorf("migrate m7 users.email: %w", err)
 	}
 
+	// m8: household sharing — groups of users who share ticket imports.
+	m8 := `
+		CREATE TABLE IF NOT EXISTS households (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			created_at TEXT    NOT NULL
+		);
+
+		CREATE TABLE IF NOT EXISTS household_invitations (
+			token        TEXT    PRIMARY KEY,
+			household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+			inviter_id   INTEGER NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
+			expires_at   TEXT    NOT NULL
+		);
+	`
+	if _, err := db.Exec(m8); err != nil {
+		return fmt.Errorf("migrate m8: %w", err)
+	}
+	if err := addColumnIfMissing(db, "users", "household_id",
+		`ALTER TABLE users ADD COLUMN household_id INTEGER REFERENCES households(id)`); err != nil {
+		return fmt.Errorf("migrate m8 users.household_id: %w", err)
+	}
+
 	return nil
 }
 

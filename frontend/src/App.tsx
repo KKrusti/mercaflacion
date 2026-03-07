@@ -5,6 +5,8 @@ import TicketUploader from './components/TicketUploader';
 import Analytics from './components/Analytics';
 import LoginModal from './components/LoginModal';
 import ChangePasswordModal from './components/ChangePasswordModal';
+import HouseholdSection from './components/HouseholdSection';
+import AcceptInviteModal from './components/AcceptInviteModal';
 import type { ProductBrowserState } from './components/ProductBrowser';
 import type { AuthState } from './types';
 
@@ -65,11 +67,12 @@ function ChevronDownIcon() {
 interface UserMenuProps {
   username: string;
   email?: string;
+  token: string;
   onLogout: () => void;
   onChangePassword: () => void;
 }
 
-function UserMenu({ username, email, onLogout, onChangePassword }: UserMenuProps) {
+function UserMenu({ username, email, token, onLogout, onChangePassword }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +111,12 @@ function UserMenu({ username, email, onLogout, onChangePassword }: UserMenuProps
             <span className="user-menu__info-name">{username}</span>
             {email && <span className="user-menu__info-email">{email}</span>}
           </div>
+          <HouseholdSection
+            token={token}
+            currentUsername={username}
+            onLeft={() => setOpen(false)}
+          />
+          <div className="user-menu__divider" />
           <button
             type="button"
             role="menuitem"
@@ -141,6 +150,9 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>(loadAuth);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get('invite'),
+  );
 
   function handleSelectProduct(id: string) {
     setSelectedProductId(id);
@@ -186,6 +198,7 @@ export default function App() {
             <UserMenu
               username={auth.user.username}
               email={auth.user.email}
+              token={auth.token ?? ''}
               onLogout={handleLogout}
               onChangePassword={() => setShowChangePasswordModal(true)}
             />
@@ -211,6 +224,14 @@ export default function App() {
         <ChangePasswordModal
           token={auth.token}
           onClose={() => setShowChangePasswordModal(false)}
+        />
+      )}
+
+      {pendingInviteToken && auth.token && (
+        <AcceptInviteModal
+          inviteToken={pendingInviteToken}
+          authToken={auth.token}
+          onClose={() => setPendingInviteToken(null)}
         />
       )}
 

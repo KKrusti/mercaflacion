@@ -75,3 +75,19 @@ type AnalyticsResult struct {
 	MostPurchased    []MostPurchasedProduct `json:"mostPurchased"`
 	BiggestIncreases []PriceIncreaseProduct `json:"biggestIncreases"`
 }
+
+// Household represents a shared grocery group (e.g. people living together).
+// Members share ticket imports and purchase analytics.
+type Household struct {
+	ID        int64     `json:"id"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// HouseholdInvitation is a time-limited token that allows another user to join
+// a household. Tokens expire after 24 hours.
+type HouseholdInvitation struct {
+	Token       string    `json:"-"`
+	HouseholdID int64     `json:"-"`
+	InviterID   int64     `json:"-"`
+	ExpiresAt   time.Time `json:"-"`
+}

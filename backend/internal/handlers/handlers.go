@@ -280,7 +280,8 @@ func (h *Handlers) ProductHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.store.GetProductByID(id)
+	userID := UserIDFromContext(r)
+	product, err := h.store.GetProductByID(userID, id)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -342,7 +343,8 @@ func (h *Handlers) ProductImageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	product, err := h.store.GetProductByID(id)
+	imageUserID := UserIDFromContext(r)
+	product, err := h.store.GetProductByID(imageUserID, id)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -475,5 +477,133 @@ func (h *Handlers) AnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 		BiggestIncreases: biggestIncreases,
 	}); err != nil {
 		log.Printf("handlers: encode analytics response: %v", err)
+	}
+}
+
+// --- Household handlers ---
+
+// HouseholdHandler dispatches GET (list members) and DELETE (leave) for /api/household.
+func (h *Handlers) HouseholdHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.getHousehold(w, r)
+	case http.MethodDelete:
+		h.leaveHousehold(w, r)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+type householdMemberDTO struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+}
+
+func (h *Handlers) getHousehold(w http.ResponseWriter, r *http.Request) {
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	members, err := h.store.GetHouseholdMembers(userID)
+	if err != nil {
+		log.Printf("handlers: get household members: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	dtos := make([]householdMemberDTO, len(members))
+	for i, m := range members {
+		dtos[i] = householdMemberDTO{ID: m.ID, Username: m.Username}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]any{"members": dtos}); err != nil {
+		log.Printf("handlers: encode household response: %v", err)
+	}
+}
+
+func (h *Handlers) leaveHousehold(w http.ResponseWriter, r *http.Request) {
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := h.store.RemoveUserFromHousehold(userID); err != nil {
+		log.Printf("handlers: leave household: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
+		log.Printf("handlers: encode leave response: %v", err)
+	}
+}
+
+// HouseholdInviteHandler handles POST /api/household/invite.
+// Creates a 24-hour invitation token. If the caller has no household, one is created.
+func (h *Handlers) HouseholdInviteHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	token, err := h.store.CreateHouseholdInvitation(userID)
+	if err != nil {
+		log.Printf("handlers: create invitation: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"token": token}); err != nil {
+		log.Printf("handlers: encode invite response: %v", err)
+	}
+}
+
+// HouseholdAcceptHandler handles POST /api/household/accept?token=<tok>.
+// The authenticated user joins the household identified by the invitation token.
+func (h *Handlers) HouseholdAcceptHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID := UserIDFromContext(r)
+	if userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Bad request: missing token", http.StatusBadRequest)
+		return
+	}
+	inv, err := h.store.GetHouseholdInvitation(token)
+	if err != nil {
+		log.Printf("handlers: get invitation: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if inv == nil || time.Now().UTC().After(inv.ExpiresAt) {
+		http.Error(w, "Not found: invitation not found or expired", http.StatusNotFound)
+		return
+	}
+	if inv.InviterID == userID {
+		http.Error(w, "Bad request: cannot accept your own invitation", http.StatusBadRequest)
+		return
+	}
+	if err := h.store.AddUserToHousehold(userID, inv.HouseholdID); err != nil {
+		log.Printf("handlers: add to household: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	// Best-effort deletion; invitation was consumed regardless.
+	if err := h.store.DeleteHouseholdInvitation(token); err != nil {
+		log.Printf("handlers: delete invitation %s: %v", token, err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
+		log.Printf("handlers: encode accept response: %v", err)
 	}
 }

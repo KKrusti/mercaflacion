@@ -40,14 +40,29 @@ var stopWords = map[string]bool{
 	"per": true, "i": true, "d": true, "s": true,
 }
 
+// stem strips a trailing 's' from token when the result still has ≥ 3
+// characters. This normalises the most common Spanish plural forms
+// (cacahuetes→cacahuete, desgrasados→desgrasado, patatas→patata) without a
+// full stemmer. It is applied to both local and catalogue keywords so that the
+// comparison is always symmetric.
+func stem(token string) string {
+	runes := []rune(token)
+	if len(runes) >= 4 && runes[len(runes)-1] == 's' {
+		return string(runes[:len(runes)-1])
+	}
+	return token
+}
+
 // keywords returns the significant tokens from a normalised product name.
 // Tokens shorter than 3 characters or in the stop-word list are discarded.
+// Each surviving token is stemmed (trailing 's' removed) so that singular and
+// plural forms resolve to the same key.
 func keywords(normalised string) []string {
 	parts := strings.Fields(normalised)
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if len([]rune(p)) >= 3 && !stopWords[p] {
-			out = append(out, p)
+			out = append(out, stem(p))
 		}
 	}
 	return out

@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "agent-tools": {
+      "source": "inference-sh/skills",
+      "sourceType": "github",
+      "computedHash": "220054a640e514d0bb5be4af7eb9b54f2205b2f6de6a85bd1561f0b0b06d6013"
+    },
     "go-linting": {
       "source": "cxuu/golang-skills",
       "sourceType": "github",

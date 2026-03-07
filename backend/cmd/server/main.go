@@ -28,7 +28,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
@@ -103,6 +103,9 @@ func main() {
 	mux.HandleFunc("/api/products/", chain(h.ProductRouter))
 	mux.HandleFunc("/api/tickets", chain(h.TicketHandler))
 	mux.HandleFunc("/api/analytics", chain(h.AnalyticsHandler))
+	mux.HandleFunc("/api/household", chain(h.HouseholdHandler))
+	mux.HandleFunc("/api/household/invite", chain(h.HouseholdInviteHandler))
+	mux.HandleFunc("/api/household/accept", chain(h.HouseholdAcceptHandler))
 
 	srv := &http.Server{
 		Addr:              port,

@@ -96,7 +96,7 @@ func TestInsertProduct_PriceHistoryPersisted(t *testing.T) {
 		t.Fatalf("InsertProduct: %v", err)
 	}
 
-	got, err := s.GetProductByID("42")
+	got, err := s.GetProductByID(0, "42")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestInsertProduct_PriceHistoryPersisted(t *testing.T) {
 
 func TestGetProductByID_NotFound(t *testing.T) {
 	s := newTestStore(t)
-	got, err := s.GetProductByID("nonexistent")
+	got, err := s.GetProductByID(0, "nonexistent")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestGetProductByID_Fields(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 
-	got, err := s.GetProductByID("7")
+	got, err := s.GetProductByID(0, "7")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestGetProductByID_CurrentPriceDerivedFromLatestRecord(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 
-	got, err := s.GetProductByID("5")
+	got, err := s.GetProductByID(0, "5")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestGetProductByID_PriceHistoryOrderedByDate(t *testing.T) {
 		t.Fatalf("insert: %v", err)
 	}
 
-	got, err := s.GetProductByID("99")
+	got, err := s.GetProductByID(0, "99")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -425,7 +425,7 @@ func TestUpdateProductImageURL_SetsURL(t *testing.T) {
 		t.Fatalf("UpdateProductImageURL: %v", err)
 	}
 
-	got, err := s.GetProductByID("img-test")
+	got, err := s.GetProductByID(0, "img-test")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -596,7 +596,7 @@ func TestUpsertPriceRecordBatch_IdempotentProduct(t *testing.T) {
 		t.Fatalf("second batch: %v", err)
 	}
 
-	p, err := s.GetProductByID("leche-entera")
+	p, err := s.GetProductByID(uid, "leche-entera")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -620,7 +620,7 @@ func TestUpsertPriceRecordBatch_PriceAndDatePreserved(t *testing.T) {
 		t.Fatalf("UpsertPriceRecordBatch: %v", err)
 	}
 
-	p, err := s.GetProductByID("aceite-girasol")
+	p, err := s.GetProductByID(uid, "aceite-girasol")
 	if err != nil {
 		t.Fatalf("GetProductByID: %v", err)
 	}
@@ -960,6 +960,222 @@ func TestGetBiggestPriceIncreases_RespectsLimit(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Errorf("want 2 (limit respected), got %d", len(got))
+	}
+}
+
+// ---------- Household ----------
+
+func createTestUser2(t *testing.T, s *store.SQLiteStore, username string) int64 {
+	t.Helper()
+	id, err := s.CreateUser(username, "", "$2a$12$fakehashfortesting000000000000000000000000000000000000")
+	if err != nil {
+		t.Fatalf("createTestUser2 %q: %v", username, err)
+	}
+	return id
+}
+
+func TestCreateHousehold_AssignsOwner(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+
+	hid, err := s.CreateHousehold(uid)
+	if err != nil {
+		t.Fatalf("CreateHousehold: %v", err)
+	}
+	if hid == 0 {
+		t.Fatal("expected non-zero household ID")
+	}
+	members, err := s.GetHouseholdMembers(uid)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if len(members) != 1 || members[0].ID != uid {
+		t.Errorf("expected owner in household, got %+v", members)
+	}
+}
+
+func TestGetHouseholdMembers_NoHousehold_ReturnsNil(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	members, err := s.GetHouseholdMembers(uid)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if members != nil {
+		t.Errorf("expected nil when user has no household, got %+v", members)
+	}
+}
+
+func TestAddUserToHousehold_BothMembersVisible(t *testing.T) {
+	s := newTestStore(t)
+	uid1 := createTestUser2(t, s, "alice")
+	uid2 := createTestUser2(t, s, "bob")
+
+	hid, err := s.CreateHousehold(uid1)
+	if err != nil {
+		t.Fatalf("CreateHousehold: %v", err)
+	}
+	if err := s.AddUserToHousehold(uid2, hid); err != nil {
+		t.Fatalf("AddUserToHousehold: %v", err)
+	}
+	members, err := s.GetHouseholdMembers(uid1)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if len(members) != 2 {
+		t.Fatalf("expected 2 members, got %d", len(members))
+	}
+}
+
+func TestRemoveUserFromHousehold_LastMemberDeletesHousehold(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	if _, err := s.CreateHousehold(uid); err != nil {
+		t.Fatalf("CreateHousehold: %v", err)
+	}
+	if err := s.RemoveUserFromHousehold(uid); err != nil {
+		t.Fatalf("RemoveUserFromHousehold: %v", err)
+	}
+	members, err := s.GetHouseholdMembers(uid)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if members != nil {
+		t.Errorf("expected nil after leaving household, got %+v", members)
+	}
+}
+
+func TestRemoveUserFromHousehold_OtherMemberStays(t *testing.T) {
+	s := newTestStore(t)
+	uid1 := createTestUser2(t, s, "alice")
+	uid2 := createTestUser2(t, s, "bob")
+
+	hid, _ := s.CreateHousehold(uid1)
+	_ = s.AddUserToHousehold(uid2, hid)
+
+	if err := s.RemoveUserFromHousehold(uid1); err != nil {
+		t.Fatalf("RemoveUserFromHousehold: %v", err)
+	}
+	members, err := s.GetHouseholdMembers(uid2)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if len(members) != 1 || members[0].ID != uid2 {
+		t.Errorf("expected bob alone in household, got %+v", members)
+	}
+}
+
+func TestHousehold_SharedSearchProducts(t *testing.T) {
+	s := newTestStore(t)
+	uid1 := createTestUser2(t, s, "alice")
+	uid2 := createTestUser2(t, s, "bob")
+
+	hid, _ := s.CreateHousehold(uid1)
+	_ = s.AddUserToHousehold(uid2, hid)
+
+	rec := models.PriceRecord{Date: date(2026, 1, 1), Price: 1.00, Store: "Mercadona"}
+	if err := s.UpsertPriceRecord(uid1, "LECHE ENTERA", rec); err != nil {
+		t.Fatalf("UpsertPriceRecord: %v", err)
+	}
+	results, err := s.SearchProducts(uid2, "")
+	if err != nil {
+		t.Fatalf("SearchProducts: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected bob to see alice's product, got %d results", len(results))
+	}
+}
+
+func TestHousehold_UsersWithoutHouseholdSeeOnlyOwn(t *testing.T) {
+	s := newTestStore(t)
+	uid1 := createTestUser2(t, s, "alice")
+	uid2 := createTestUser2(t, s, "bob")
+
+	rec := models.PriceRecord{Date: date(2026, 1, 1), Price: 1.00, Store: "Mercadona"}
+	_ = s.UpsertPriceRecord(uid1, "LECHE ENTERA", rec)
+	_ = s.UpsertPriceRecord(uid2, "PAN INTEGRAL", rec)
+
+	aliceResults, _ := s.SearchProducts(uid1, "")
+	bobResults, _ := s.SearchProducts(uid2, "")
+
+	if len(aliceResults) != 1 || aliceResults[0].ID != "leche-entera" {
+		t.Errorf("alice: expected leche-entera, got %+v", aliceResults)
+	}
+	if len(bobResults) != 1 || bobResults[0].ID != "pan-integral" {
+		t.Errorf("bob: expected pan-integral, got %+v", bobResults)
+	}
+}
+
+func TestCreateHouseholdInvitation_ReturnsToken(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	token, err := s.CreateHouseholdInvitation(uid)
+	if err != nil {
+		t.Fatalf("CreateHouseholdInvitation: %v", err)
+	}
+	if len(token) != 64 {
+		t.Errorf("expected 64-char hex token, got %d chars", len(token))
+	}
+}
+
+func TestCreateHouseholdInvitation_CreatesHouseholdIfMissing(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	if _, err := s.CreateHouseholdInvitation(uid); err != nil {
+		t.Fatalf("CreateHouseholdInvitation: %v", err)
+	}
+	members, err := s.GetHouseholdMembers(uid)
+	if err != nil {
+		t.Fatalf("GetHouseholdMembers: %v", err)
+	}
+	if len(members) != 1 {
+		t.Errorf("expected household with 1 member after invitation, got %+v", members)
+	}
+}
+
+func TestGetHouseholdInvitation_ReturnsInvitation(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	token, _ := s.CreateHouseholdInvitation(uid)
+	inv, err := s.GetHouseholdInvitation(token)
+	if err != nil {
+		t.Fatalf("GetHouseholdInvitation: %v", err)
+	}
+	if inv == nil {
+		t.Fatal("expected invitation, got nil")
+	}
+	if inv.InviterID != uid {
+		t.Errorf("InviterID: want %d, got %d", uid, inv.InviterID)
+	}
+	if inv.ExpiresAt.IsZero() {
+		t.Error("ExpiresAt must not be zero")
+	}
+}
+
+func TestGetHouseholdInvitation_UnknownToken_ReturnsNil(t *testing.T) {
+	s := newTestStore(t)
+	inv, err := s.GetHouseholdInvitation("nonexistenttoken")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if inv != nil {
+		t.Errorf("expected nil for unknown token, got %+v", inv)
+	}
+}
+
+func TestDeleteHouseholdInvitation_RemovesToken(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	token, _ := s.CreateHouseholdInvitation(uid)
+	if err := s.DeleteHouseholdInvitation(token); err != nil {
+		t.Fatalf("DeleteHouseholdInvitation: %v", err)
+	}
+	inv, err := s.GetHouseholdInvitation(token)
+	if err != nil {
+		t.Fatalf("GetHouseholdInvitation after delete: %v", err)
+	}
+	if inv != nil {
+		t.Error("expected nil after deletion, got invitation")
 	}
 }
 

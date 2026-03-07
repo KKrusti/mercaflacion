@@ -25,6 +25,19 @@ func (e *Enricher) FetchProductThumbnail(ctx context.Context, productID string) 
 // Hacendado" (Dice ≈ 0.67).
 const minMatchScore = 0.5
 
+// minMatched returns the minimum number of keyword matches required before
+// the Dice score is even evaluated.  When the local product has ≥ 2 keywords
+// we demand at least 2 shared tokens; this prevents a single shared token
+// (e.g. "patatas") from matching a completely different catalogue entry
+// (e.g. "Patatas 3 kg") just because that entry ends up with only one
+// meaningful keyword after stop-word filtering.
+func minMatched(localLen int) int {
+	if localLen >= 2 {
+		return 2
+	}
+	return 1
+}
+
 // indexTTL is how long the cached Mercadona product index stays valid.
 // After this duration the next Run() call will refresh it from the API.
 const indexTTL = 24 * time.Hour
@@ -197,7 +210,7 @@ func bestMatch(localKW []string, index ProductIndex) (string, bool) {
 				matched++
 			}
 		}
-		if matched == 0 {
+		if matched < minMatched(len(localKW)) {
 			continue
 		}
 

@@ -179,6 +179,121 @@ func TestBestMatch_DiceAcceptsCloseMatch(t *testing.T) {
 	}
 }
 
+// TestBestMatch_MultiKeyword_RequiresTwoMatches verifies that when the local
+// product has ≥ 2 keywords, a single shared token is not enough to match even
+// if the Dice score would otherwise pass.
+// Concretely: "patatas cocidas" (2 kw) vs a catalogue entry that has only
+// ["patatas"] after filtering should be rejected because matched(1) < 2.
+func TestBestMatch_MultiKeyword_RequiresTwoMatches(t *testing.T) {
+	index := ProductIndex{
+		// Simulates "Patatas 3 kg" after filtering: only "patatas" survives.
+		{Thumbnail: "https://example.com/patatas-kg.jpg", Keywords: []string{"patatas"}},
+	}
+	// Dice would be 2·1/(2+1) = 0.667 without the min-match guard; must be rejected.
+	_, ok := bestMatch([]string{"patatas", "cocidas"}, index)
+	if ok {
+		t.Error("bestMatch: 2-keyword local must require 2 matches; single shared token should not suffice")
+	}
+}
+
+// TestBestMatch_MultiKeyword_TwoMatchesAccepted verifies the complement: when
+// both local keywords are present in the catalogue entry the match is accepted.
+func TestBestMatch_MultiKeyword_TwoMatchesAccepted(t *testing.T) {
+	index := ProductIndex{
+		{Thumbnail: "https://example.com/patatas-cocidas.jpg", Keywords: []string{"patatas", "cocidas", "hacendado"}},
+	}
+	url, ok := bestMatch([]string{"patatas", "cocidas"}, index)
+	if !ok {
+		t.Fatal("bestMatch: expected match when 2 of 2 local keywords are present")
+	}
+	if url != "https://example.com/patatas-cocidas.jpg" {
+		t.Errorf("bestMatch returned wrong URL: %q", url)
+	}
+}
+
+// TestMinMatched_Logic verifies the helper directly.
+func TestMinMatched_Logic(t *testing.T) {
+	tests := []struct {
+		localLen int
+		want     int
+	}{
+		{0, 1},
+		{1, 1},
+		{2, 2},
+		{3, 2},
+		{5, 2},
+	}
+	for _, tt := range tests {
+		got := minMatched(tt.localLen)
+		if got != tt.want {
+			t.Errorf("minMatched(%d) = %d, want %d", tt.localLen, got, tt.want)
+		}
+	}
+}
+
+// ---------- stem ----------
+
+func TestStem(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"cacahuetes", "cacahuete"},   // plural → singular
+		{"desgrasados", "desgrasado"}, // plural masc. → singular
+		{"patatas", "patata"},
+		{"guantes", "guante"},
+		{"cocidas", "cocida"},
+		{"leche", "leche"}, // no trailing 's' → unchanged
+		{"yogur", "yogur"}, // no trailing 's' → unchanged
+		{"pan", "pan"},     // only 3 runes: do NOT strip
+		{"gas", "gas"},     // only 3 runes: do NOT strip
+	}
+	for _, tt := range tests {
+		got := stem(tt.input)
+		if got != tt.want {
+			t.Errorf("stem(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+// TestKeywords_Stems verifies that plural forms are reduced to singular before
+// matching so that "cacahuetes" and "cacahuete" resolve to the same token.
+func TestKeywords_Stems(t *testing.T) {
+	got := keywords("cacahuetes desgrasados")
+	want := []string{"cacahuete", "desgrasado"}
+	if len(got) != len(want) {
+		t.Fatalf("keywords() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("keywords()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestBestMatch_PluralSingularMatch verifies the full end-to-end case:
+// local product "cacahuet desgreixat" (Catalan) should match the Mercadona
+// catalogue entry "Cacahuetes desgrasados Hacendado" after translation and
+// stemming normalise both sides to the same tokens.
+func TestBestMatch_PluralSingularMatch(t *testing.T) {
+	// Simulate what BuildProductIndex stores after normalise+keywords.
+	catalogueKW := keywords(normalise("Cacahuetes desgrasados Hacendado"))
+	index := ProductIndex{
+		{Thumbnail: "https://example.com/cacahuete.jpg", Keywords: catalogueKW},
+	}
+
+	// Simulate what Run() computes for the local product.
+	localKW := keywords(translateCatalan(normalise("CACAHUET DESGREIXAT")))
+
+	url, ok := bestMatch(localKW, index)
+	if !ok {
+		t.Fatalf("expected match for cacahuet desgreixat → Cacahuetes desgrasados; localKW=%v catalogueKW=%v", localKW, catalogueKW)
+	}
+	if url != "https://example.com/cacahuete.jpg" {
+		t.Errorf("bestMatch returned wrong URL: %q", url)
+	}
+}
+
 // ---------- translateCatalan ----------
 
 func TestTranslateCatalan(t *testing.T) {
@@ -290,6 +405,11 @@ func TestTranslateCatalan(t *testing.T) {
 			name:  "detergente suavizante",
 			input: "detergent suavitzant",
 			want:  "detergente suavizante",
+		},
+		{
+			name:  "guantes nitrilo",
+			input: "guants nitril",
+			want:  "guantes nitrilo",
 		},
 	}
 	for _, tt := range tests {

@@ -47,11 +47,21 @@ cd backend && go test -run TestFunctionName ./internal/handlers/ # single test
 cd frontend && npm run test:watch                                 # watch mode
 cd frontend && npm run test:coverage
 
+# E2E tests (Playwright — Chromium + mobile Poco X6 Pro)
+task test:e2e
+task test:e2e:headed   # with visible browser window
+
 # Seed the DB with sample receipts
 cd backend && go run ./cmd/seed/main.go -dir ./seed
 
 # Enrich product images from the Mercadona API
-cd backend && go run ./cmd/enrich/main.go
+task enrich
+# or: cd backend && go run ./cmd/enrich/main.go -db basket-cost.db
+
+# DB utilities
+task db:reset     # wipe all data (prompts for confirmation)
+task db:sanitize  # detect and remove duplicate price records
+task kill         # kill the backend process on :8080
 ```
 
 ## Architecture
@@ -78,11 +88,31 @@ Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api`
 **API:**
 | Method | Path | Description |
 |--------|------|-------------|
+| `POST` | `/api/auth/register` | Register new user |
+| `POST` | `/api/auth/login` | Login → returns JWT |
+| `PATCH` | `/api/auth/password` | Change password (auth required) |
 | `GET` | `/api/products?q=<query>` | Search; empty `q` returns all, ordered by most-recently-purchased |
 | `GET` | `/api/products/<id>` | Product detail + full price history |
+| `PATCH` | `/api/products/<id>/image` | Set product image URL manually (auth required) |
 | `POST` | `/api/tickets` | Upload one Mercadona PDF (`multipart/form-data`, field `file`, max 10 MB) |
+| `GET` | `/api/analytics` | Top price increases + most-purchased products |
+| `GET` | `/api/household` | List household members (auth required) |
+| `DELETE` | `/api/household` | Leave household (auth required) |
+| `POST` | `/api/household/invite` | Create 24h invitation token (auth required) |
+| `POST` | `/api/household/accept?token=<tok>` | Accept invitation and join household (auth required) |
 
 Multiple files are uploaded by calling `POST /api/tickets` once per file in parallel (`Promise.all`). No batch endpoint exists.
+
+**Auth & multi-tenancy:**
+- JWT (HS256, 72 h TTL) issued at login; sent as `Authorization: Bearer <token>` on every authenticated request.
+- `cmd/server/main.go` middleware extracts the user ID from the token and stores it in `context` via `handlers.UserIDContextKey`. Handlers call `handlers.UserIDFromContext(r)` — returns `0` for unauthenticated requests.
+- All read queries scope data by household: `store.householdUserIDs(userID)` expands one user to all co-members, then `userIDsInClause()` builds `user_id IN (?,?)` or `user_id IS NULL` for seed/anonymous data. Write queries (ticket upload, mark processed) still use the individual `userID`.
+- `CreateHouseholdInvitation` auto-creates a household for the inviter if they don't have one yet.
+
+**Enricher pipeline (`internal/enricher/`):**
+- `normalise` → `translateCatalan` (Catalan→Spanish dict, `catalan_dict.go`) → `keywords` (stop-word filter + trailing-`s` stem) → `bestMatch` (Dice coefficient ≥ 0.5).
+- `bestMatch` additionally requires `matched ≥ 2` when the local product has ≥ 2 keywords, preventing single-token false positives (e.g. "patatas" matching "Patatas 3 kg").
+- The Mercadona catalogue index is cached in memory for 24 h; `Schedule()` coalesces concurrent upload signals so at most one catalogue download runs at a time.
 
 ## Key Design Patterns
 
@@ -140,7 +170,8 @@ Tests are mandatory for every new piece of code.
 ## Task Tracking
 
 Use `bd` (Beads) for task tracking:
-- `bd new` — create an issue before starting any planned task
-- `bd start <id>` — mark in-progress when beginning
+- `bd new "title"` — create an issue before starting any planned task
+- `bd state <id> in_progress` — mark in-progress when beginning (`bd start` does not exist)
+- `bd close <id>` — mark as done
 - `bd ready` — review what's pending at end of session
 - Update `PROGRESS.md` after each completed task so work can be resumed from scratch if the session is interrupted.
