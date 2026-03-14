@@ -176,6 +176,14 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get('invite'),
   );
 
+  // When the page loads with an invite link and the user is not logged in,
+  // open the login modal automatically so they know what to do.
+  useEffect(() => {
+    if (pendingInviteToken && !auth.user) {
+      setShowLoginModal(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleSelectProduct(id: string) {
     setSelectedProductId(id);
   }
@@ -252,7 +260,11 @@ export default function App() {
       </header>
 
       {showLoginModal && (
-        <LoginModal onAuth={handleAuth} onClose={() => setShowLoginModal(false)} />
+        <LoginModal
+          onAuth={handleAuth}
+          onClose={() => setShowLoginModal(false)}
+          hint={pendingInviteToken ? 'Has recibido una invitación para unirte a una unidad familiar. Inicia sesión o crea una cuenta para aceptarla.' : undefined}
+        />
       )}
 
       {showChangePasswordModal && auth.token && (

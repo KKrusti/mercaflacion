@@ -1921,6 +1921,17 @@ body {
   line-height: 1.4;
 }
 
+.modal__hint {
+  font-size: 0.875rem;
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1.5px solid #6ee7b7;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  line-height: 1.4;
+  margin: 0 0 0.25rem;
+}
+
 .modal__submit {
   width: 100%;
   padding: 0.7rem 1rem;

@@ -126,4 +126,14 @@ describe('LoginModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('shows the hint message when the hint prop is provided', () => {
+    render(<LoginModal onAuth={mockOnAuth} onClose={mockOnClose} hint="Tienes una invitación pendiente" />);
+    expect(screen.getByText('Tienes una invitación pendiente')).toBeInTheDocument();
+  });
+
+  it('does not show the hint when hint prop is not provided', () => {
+    renderModal();
+    expect(screen.queryByText('Tienes una invitación pendiente')).not.toBeInTheDocument();
+  });
 });

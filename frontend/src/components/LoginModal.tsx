@@ -5,11 +5,12 @@ import type { AuthState } from '../types';
 interface LoginModalProps {
   onAuth: (auth: AuthState) => void;
   onClose: () => void;
+  hint?: string;
 }
 
 type Mode = 'login' | 'register';
 
-export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
+export default function LoginModal({ onAuth, onClose, hint }: LoginModalProps) {
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -74,6 +75,8 @@ export default function LoginModal({ onAuth, onClose }: LoginModalProps) {
             Registrarse
           </button>
         </div>
+
+        {hint && <p className="modal__hint">{hint}</p>}
 
         <form className="modal__form" onSubmit={handleSubmit} noValidate>
           <div className="modal__field">
