@@ -61,6 +61,25 @@
   --safe-right:  env(safe-area-inset-right,  0px);
 }
 
+/* ─── Dark theme ─────────────────────────────────────────── */
+[data-theme="dark"] {
+  --color-bg:            #0f172a;
+  --color-bg-alt:        #1a2744;
+  --color-surface:       #1e293b;
+  --color-surface-hover: #2d3f57;
+  --color-text:          #e2e8f0;
+  --color-text-muted:    #94a3b8;
+  --color-text-subtle:   #64748b;
+  --color-border:        #334155;
+  --color-border-focus:  #10b981;
+  --color-badge-bg:      #064e3b;
+  --color-badge-text:    #6ee7b7;
+  --color-price:         #10b981;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.4),  0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.4);
+}
+
 /* ─── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after {
   margin: 0;
@@ -2297,4 +2316,118 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ─── Theme toggle button ────────────────────────────────── */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.theme-toggle:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ─── Dark mode: component overrides ────────────────────── */
+
+/* Skeleton shimmer */
+[data-theme="dark"] .skeleton,
+[data-theme="dark"] .analytics__skeleton-card {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+}
+
+/* Error states */
+[data-theme="dark"] .modal__error,
+[data-theme="dark"] .analytics__error {
+  color: #fca5a5;
+  background: #2d0a0a;
+  border-color: #7f1d1d;
+}
+
+[data-theme="dark"] .image-editor__preview--error {
+  background: #2d0a0a;
+  border-color: #7f1d1d;
+}
+[data-theme="dark"] .image-editor__preview-msg,
+[data-theme="dark"] .image-editor__error,
+[data-theme="dark"] .price-record-delete-error {
+  color: #fca5a5;
+}
+
+/* Broken product image placeholder */
+[data-theme="dark"] .product-img-broken {
+  background: #2d0a0a;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+/* Price change badges */
+[data-theme="dark"] .price-change-badge--up {
+  background: #2d0a0a;
+  color: #fca5a5;
+}
+[data-theme="dark"] .price-change-badge--down {
+  background: #052e16;
+  color: #86efac;
+}
+
+/* Delete confirm row highlight */
+[data-theme="dark"] .price-table tbody tr.price-record--confirming td {
+  background: #1c150a;
+}
+
+/* Delete button hover */
+[data-theme="dark"] .price-record-delete-btn:hover {
+  color: #fca5a5;
+  background: #2d0a0a;
+}
+
+/* Toast notifications */
+[data-theme="dark"] .ticket-uploader__toast--success {
+  background: #052e16;
+  border-color: var(--color-primary);
+}
+[data-theme="dark"] .ticket-uploader__toast--error {
+  background: #2d0a0a;
+  border-color: #7f1d1d;
+}
+[data-theme="dark"] .ticket-uploader__toast--error .ticket-uploader__toast-icon {
+  color: #fca5a5;
+}
+
+/* Ticket uploader button hover */
+[data-theme="dark"] .ticket-uploader__btn:hover:not(:disabled) {
+  background: #064e3b;
+  border-color: var(--color-primary);
+}
+
+/* Image edit trigger button */
+[data-theme="dark"] .image-editor__trigger {
+  background: rgba(30, 41, 59, 0.92);
+}
+
+/* Hint messages */
+[data-theme="dark"] .modal__hint {
+  color: #6ee7b7;
+  background: #052e16;
+  border-color: #065f46;
 }
