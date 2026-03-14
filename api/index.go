@@ -6,6 +6,7 @@ package handler
 
 import (
 	"basket-cost/pkg/database"
+	"basket-cost/pkg/enricher"
 	"basket-cost/pkg/handlers"
 	"basket-cost/pkg/middleware"
 	"basket-cost/pkg/ratelimit"
@@ -33,8 +34,11 @@ func setup() error {
 
 	s := store.New(db)
 	imp := ticket.NewImporter(ticket.NewExtractor(), ticket.NewMercadonaParser(), s)
-	// enricher is nil — image enrichment runs as a separate offline task.
-	h := handlers.New(s, imp, nil)
+	// The enricher is initialised so that FetchProductThumbnail works for manual
+	// image URL resolution. Schedule() calls are silently dropped in serverless
+	// (no background worker runs); full enrichment is triggered via GitHub Actions.
+	enr := enricher.New(s)
+	h := handlers.New(s, imp, enr)
 
 	authMiddleware := middleware.OptionalAuth(s)
 	chain := func(handler http.HandlerFunc) http.HandlerFunc {
