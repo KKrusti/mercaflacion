@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 import SearchBar from './components/SearchBar';
 import ProductDetail from './components/ProductDetail';
 import TicketUploader from './components/TicketUploader';
@@ -251,6 +252,7 @@ export default function App() {
   }
 
   return (
+    <>
     <div className="app">
       <header className="app-header">
         <button
@@ -396,5 +398,7 @@ export default function App() {
         </>
       )}
     </div>
+    <VercelAnalytics />
+    </>
   );
 }
