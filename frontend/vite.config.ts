@@ -8,6 +8,9 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
+        // Dev server: proxy to local Go devserver.
+        // In production (Vercel), /api/* is served by the Go serverless function
+        // at the same origin — no proxy needed.
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

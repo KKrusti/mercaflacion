@@ -4,10 +4,9 @@ dotenv: ['.env']
 
 tasks:
   backend:
-    desc: Levanta solo el servidor backend (Go) en http://localhost:8080
-    dir: backend
+    desc: Levanta el servidor de desarrollo (Go) en http://localhost:8080
     cmds:
-      - go run ./cmd/server/main.go
+      - go run ./cmd/devserver
 
   dev:
     desc: Levanta backend + frontend. Frontend disponible en http://localhost:5173
@@ -33,10 +32,11 @@ tasks:
     silent: true
 
   test:backend:
-    desc: Corre los tests del backend (Go)
-    dir: backend
+    desc: Corre los tests del backend (Go). Requiere DATABASE_URL para los tests de integración.
     cmds:
-      - go test ./...
+      # -p 1: run packages sequentially — store and handlers share the same Neon DB
+      # and their truncateAll operations would deadlock if run concurrently.
+      - go test -p 1 ./...
 
   test:frontend:
     desc: Corre los tests del frontend (Vitest)
@@ -51,20 +51,18 @@ tasks:
       - task: test:frontend
 
   dev:backend:
-    dir: backend
     cmds:
-      - go run ./cmd/server/main.go
+      - go run ./cmd/devserver
 
   dev:frontend:
     dir: frontend
     cmds:
       - npm run dev
 
-  enrich:
-    desc: Descarga imágenes de productos desde la API de Mercadona y las guarda en la BD
-    dir: backend
+  seed:
+    desc: Importa PDFs de tickets de Mercadona en la BD. Requiere DATABASE_URL y -dir o ficheros.
     cmds:
-      - go run ./cmd/enrich/main.go -db basket-cost.db
+      - go run ./cmd/seed {{.CLI_ARGS}}
 
   test:e2e:
     desc: Ejecuta los tests E2E con Playwright (headless, Chromium + móvil Poco X6 Pro)
@@ -78,20 +76,7 @@ tasks:
     cmds:
       - npm run test:e2e:headed
 
-  db:reset:
-    desc: "Borra todo el contenido de la base de datos (productos, precios e historial de tickets)"
-    dir: backend
-    prompt: "¿Seguro? Se borrarán TODOS los datos de basket-cost.db. Esta acción no se puede deshacer."
-    cmds:
-      - go run ./cmd/dbreset/main.go -db basket-cost.db
-
   kill:
     desc: "Mata el proceso del backend que escucha en :8080"
     cmds:
       - fuser -k 8080/tcp || true
-
-  db:sanitize:
-    desc: "Detecta registros de precios duplicados (mismo ticket procesado dos veces) y ofrece borrarlos con confirmación"
-    dir: backend
-    cmds:
-      - go run ./cmd/dbsanitize/main.go -db basket-cost.db
