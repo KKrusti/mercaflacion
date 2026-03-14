@@ -2417,10 +2417,43 @@ body {
   color: #fca5a5;
 }
 
-/* Ticket uploader button hover */
+/* ─── Header action buttons — dark mode ─────────────────── */
+
+/* Login / user menu button (inactive) */
+[data-theme="dark"] .auth-btn {
+  background: #1e293b;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+[data-theme="dark"] .auth-btn:hover {
+  background: #273549;
+  border-color: #64748b;
+  color: #e2e8f0;
+}
+
+/* User menu button (logged-in / active state) */
+[data-theme="dark"] .auth-btn--active {
+  background: #052e1c;
+  border-color: #10b981;
+  color: #6ee7b7;
+}
+[data-theme="dark"] .auth-btn--active:hover {
+  background: #064e31;
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+
+/* Ticket uploader button */
+[data-theme="dark"] .ticket-uploader__btn {
+  background: #052e1c;
+  border-color: #10b981;
+  color: #6ee7b7;
+}
 [data-theme="dark"] .ticket-uploader__btn:hover:not(:disabled) {
-  background: #064e3b;
-  border-color: var(--color-primary);
+  background: #064e31;
+  border-color: #34d399;
+  color: #a7f3d0;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 /* Image edit trigger button */
