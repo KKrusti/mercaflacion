@@ -26,6 +26,8 @@ jobs:
 
     - name: Test
       env:
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        # DATABASE_URL is intentionally absent: integration tests require a
+        # dedicated test database, not the production one. Without it they
+        # skip automatically, so only unit tests run here.
         JWT_SECRET: ${{ secrets.JWT_SECRET }}
       run: go test -p 1 -v ./...
