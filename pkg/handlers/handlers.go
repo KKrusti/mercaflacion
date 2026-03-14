@@ -107,9 +107,13 @@ func IsAdminFromContext(r *http.Request) bool {
 	return v
 }
 
-// reProductPage matches Mercadona product page URLs and captures the numeric product ID.
-// Example: https://tienda.mercadona.es/product/60722/chocolate-negro-...
-var reProductPage = regexp.MustCompile(`^https?://tienda\.mercadona\.es/products?/(\d+)`)
+// reProductPage matches Mercadona product page URLs and captures the product ID,
+// including the optional variant suffix (e.g. "82830.1").
+// Examples:
+//
+//	https://tienda.mercadona.es/product/60722/chocolate-negro-...
+//	https://tienda.mercadona.es/product/82830.1/barra-pan-campesina-...
+var reProductPage = regexp.MustCompile(`^https?://tienda\.mercadona\.es/products?/(\d+(?:\.\d+)?)`)
 
 // EnrichScheduler is the subset of *enricher.Enricher used by Handlers.
 // Defined as an interface so tests can inject a fake without network calls.
