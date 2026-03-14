@@ -988,8 +988,11 @@ body {
 
 .price-table-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: clamp(220px, 35vh, 360px);
   border-radius: var(--radius-md);
   border: 1.5px solid var(--color-border);
+  -webkit-overflow-scrolling: touch;
 }
 
 .price-table {

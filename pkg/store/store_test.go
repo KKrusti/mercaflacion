@@ -884,6 +884,43 @@ func TestCreateHouseholdInvitation_ReturnsToken(t *testing.T) {
 	}
 }
 
+func TestCreateHouseholdInvitation_InvalidatesPrevious(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+
+	first, err := s.CreateHouseholdInvitation(uid)
+	if err != nil {
+		t.Fatalf("first CreateHouseholdInvitation: %v", err)
+	}
+
+	second, err := s.CreateHouseholdInvitation(uid)
+	if err != nil {
+		t.Fatalf("second CreateHouseholdInvitation: %v", err)
+	}
+
+	if first == second {
+		t.Fatal("expected different tokens on each call")
+	}
+
+	// The first token must no longer exist.
+	inv, err := s.GetHouseholdInvitation(first)
+	if err != nil {
+		t.Fatalf("GetHouseholdInvitation (first): %v", err)
+	}
+	if inv != nil {
+		t.Error("first invitation should have been invalidated")
+	}
+
+	// The second token must still be valid.
+	inv2, err := s.GetHouseholdInvitation(second)
+	if err != nil {
+		t.Fatalf("GetHouseholdInvitation (second): %v", err)
+	}
+	if inv2 == nil {
+		t.Error("second invitation should still be active")
+	}
+}
+
 func TestGetHouseholdInvitation_ReturnsInvitation(t *testing.T) {
 	s := newTestStore(t)
 	uid := createTestUser(t, s)

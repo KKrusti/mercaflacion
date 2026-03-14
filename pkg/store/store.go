@@ -711,6 +711,10 @@ func (s *PostgresStore) CreateHouseholdInvitation(inviterID int64) (string, erro
 	} else {
 		hid = householdID.Int64
 	}
+	// Invalidate any existing invitations for this household so there is only one active token.
+	if _, err := s.db.Exec(`DELETE FROM household_invitations WHERE household_id = $1`, hid); err != nil {
+		return "", fmt.Errorf("invalidate old invitations: %w", err)
+	}
 	token, err := generateToken()
 	if err != nil {
 		return "", err
