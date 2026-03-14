@@ -76,6 +76,11 @@ tasks:
     cmds:
       - npm run test:e2e:headed
 
+  enrich:
+    desc: Enriquece imágenes de productos desde la API de Mercadona. Requiere DATABASE_URL.
+    cmds:
+      - go run ./cmd/enrich
+
   kill:
     desc: "Mata el proceso del backend que escucha en :8080"
     cmds:

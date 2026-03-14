@@ -60,6 +60,7 @@ func setup() error {
 	m.HandleFunc("/api/household/invite", chain(h.HouseholdInviteHandler))
 	m.HandleFunc("/api/household/accept", chain(h.HouseholdAcceptHandler))
 	m.HandleFunc("/api/ipc", chain(h.IPCHandler))
+	m.HandleFunc("/api/enrich/trigger", chain(h.EnrichTriggerHandler))
 
 	mux = m
 	return nil

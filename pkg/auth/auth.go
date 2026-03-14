@@ -44,7 +44,8 @@ func CheckPassword(plain, hash string) error {
 }
 
 type claims struct {
-	UserID int64 `json:"uid"`
+	UserID  int64 `json:"uid"`
+	IsAdmin bool  `json:"adm"`
 	jwt.RegisteredClaims
 }
 
@@ -59,14 +60,17 @@ func generateJTI() (string, error) {
 }
 
 // GenerateToken creates a signed JWT for the given user ID valid for tokenTTL.
-func GenerateToken(userID int64) (string, error) {
+// isAdmin is embedded in the token claims so the middleware can propagate it
+// without an extra database lookup on every request.
+func GenerateToken(userID int64, isAdmin bool) (string, error) {
 	jti, err := generateJTI()
 	if err != nil {
 		return "", err
 	}
 	now := time.Now()
 	c := claims{
-		UserID: userID,
+		UserID:  userID,
+		IsAdmin: isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        jti,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -81,8 +85,9 @@ func GenerateToken(userID int64) (string, error) {
 }
 
 // ValidateToken parses and validates a JWT string, returning the user ID,
-// JTI (unique token identifier used for revocation), and expiry time on success.
-func ValidateToken(tokenStr string) (userID int64, jti string, expiresAt time.Time, err error) {
+// admin flag, JTI (unique token identifier used for revocation), and expiry
+// time on success.
+func ValidateToken(tokenStr string) (userID int64, isAdmin bool, jti string, expiresAt time.Time, err error) {
 	tok, err := jwt.ParseWithClaims(tokenStr, &claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
@@ -90,17 +95,17 @@ func ValidateToken(tokenStr string) (userID int64, jti string, expiresAt time.Ti
 		return jwtSecret(), nil
 	})
 	if err != nil {
-		return 0, "", time.Time{}, fmt.Errorf("parse token: %w", err)
+		return 0, false, "", time.Time{}, fmt.Errorf("parse token: %w", err)
 	}
 
 	c, ok := tok.Claims.(*claims)
 	if !ok || !tok.Valid {
-		return 0, "", time.Time{}, errors.New("invalid token claims")
+		return 0, false, "", time.Time{}, errors.New("invalid token claims")
 	}
 
 	var exp time.Time
 	if c.ExpiresAt != nil {
 		exp = c.ExpiresAt.Time
 	}
-	return c.UserID, c.RegisteredClaims.ID, exp, nil
+	return c.UserID, c.IsAdmin, c.RegisteredClaims.ID, exp, nil
 }

@@ -55,10 +55,11 @@ func OptionalAuth(s store.Store) func(http.HandlerFunc) http.HandlerFunc {
 			header := r.Header.Get("Authorization")
 			if strings.HasPrefix(header, "Bearer ") {
 				token := strings.TrimPrefix(header, "Bearer ")
-				if userID, jti, _, err := auth.ValidateToken(token); err == nil && userID > 0 {
+				if userID, isAdmin, jti, _, err := auth.ValidateToken(token); err == nil && userID > 0 {
 					revoked, rErr := s.IsTokenRevoked(jti)
 					if rErr == nil && !revoked {
 						ctx := context.WithValue(r.Context(), handlers.UserIDContextKey{}, userID)
+						ctx = context.WithValue(ctx, handlers.IsAdminContextKey{}, isAdmin)
 						r = r.WithContext(ctx)
 					}
 				}

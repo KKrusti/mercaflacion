@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -97,6 +98,15 @@ func UserIDFromContext(r *http.Request) int64 {
 	return v
 }
 
+// IsAdminContextKey is the context key for the authenticated user's admin flag.
+type IsAdminContextKey struct{}
+
+// IsAdminFromContext returns true when the authenticated user is an admin.
+func IsAdminFromContext(r *http.Request) bool {
+	v, _ := r.Context().Value(IsAdminContextKey{}).(bool)
+	return v
+}
+
 // reProductPage matches Mercadona product page URLs and captures the numeric product ID.
 // Example: https://tienda.mercadona.es/product/60722/chocolate-negro-...
 var reProductPage = regexp.MustCompile(`^https?://tienda\.mercadona\.es/products?/(\d+)`)
@@ -134,6 +144,7 @@ type loginResponse struct {
 	UserID   int64  `json:"userId"`
 	Username string `json:"username"`
 	Email    string `json:"email,omitempty"`
+	IsAdmin  bool   `json:"isAdmin"`
 }
 
 func (h *Handlers) RegisterHandler(w http.ResponseWriter, r *http.Request) {
@@ -181,7 +192,7 @@ func (h *Handlers) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateToken(userID)
+	token, err := auth.GenerateToken(userID, false)
 	if err != nil {
 		log.Printf("handlers: generate token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -222,7 +233,7 @@ func (h *Handlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.GenerateToken(user.ID)
+	token, err := auth.GenerateToken(user.ID, user.IsAdmin)
 	if err != nil {
 		log.Printf("handlers: generate token: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -235,6 +246,7 @@ func (h *Handlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		UserID:   user.ID,
 		Username: user.Username,
 		Email:    user.Email,
+		IsAdmin:  user.IsAdmin,
 	}); err != nil {
 		log.Printf("handlers: encode login response: %v", err)
 	}
@@ -502,7 +514,7 @@ func (h *Handlers) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	tokenStr := strings.TrimPrefix(header, "Bearer ")
 
-	_, jti, expiresAt, err := auth.ValidateToken(tokenStr)
+	_, _, jti, expiresAt, err := auth.ValidateToken(tokenStr)
 	if err != nil || jti == "" {
 		// Token is already invalid; treat logout as successful.
 		w.Header().Set("Content-Type", "application/json")
@@ -800,4 +812,56 @@ func (h *Handlers) IPCHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Printf("handlers: encode ipc response: %v", err)
 	}
+}
+
+// EnrichTriggerHandler handles POST /api/enrich/trigger.
+// Only admin users may call this endpoint. It dispatches the enrich workflow
+// on GitHub Actions via workflow_dispatch so the long-running enrichment job
+// runs outside of Vercel's request timeout.
+func (h *Handlers) EnrichTriggerHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !IsAdminFromContext(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	ghToken := os.Getenv("GH_WORKFLOW_TOKEN")
+	if ghToken == "" {
+		http.Error(w, "Internal server error: enrichment not configured", http.StatusInternalServerError)
+		return
+	}
+
+	body := `{"ref":"master"}`
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+		"https://api.github.com/repos/KKrusti/basket-cost/actions/workflows/enrich.yml/dispatches",
+		strings.NewReader(body))
+	if err != nil {
+		log.Printf("handlers: enrich trigger: build request: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+ghToken)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("handlers: enrich trigger: call github: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		log.Printf("handlers: enrich trigger: github returned %d", resp.StatusCode)
+		http.Error(w, "Internal server error: could not trigger enrichment", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
 }

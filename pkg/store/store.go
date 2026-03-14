@@ -90,8 +90,8 @@ func (s *PostgresStore) CreateUser(username, email, passwordHash string) (int64,
 func (s *PostgresStore) GetUserByUsername(username string) (*models.User, error) {
 	var u models.User
 	err := s.db.QueryRow(
-		`SELECT id, username, email, password_hash, created_at FROM users WHERE username = $1`, username,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt)
+		`SELECT id, username, email, password_hash, created_at, is_admin FROM users WHERE username = $1`, username,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.IsAdmin)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -105,8 +105,8 @@ func (s *PostgresStore) GetUserByUsername(username string) (*models.User, error)
 func (s *PostgresStore) GetUserByID(id int64) (*models.User, error) {
 	var u models.User
 	err := s.db.QueryRow(
-		`SELECT id, username, email, password_hash, created_at FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt)
+		`SELECT id, username, email, password_hash, created_at, is_admin FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Username, &u.Email, &u.PasswordHash, &u.CreatedAt, &u.IsAdmin)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

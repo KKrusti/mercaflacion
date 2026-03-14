@@ -25,7 +25,7 @@ describe('register', () => {
     );
     const result = await register('carlos', 'securepassword', 'c@example.com');
     expect(result.token).toBe('tok123');
-    expect(result.user).toEqual({ userId: 1, username: 'carlos', email: 'c@example.com' });
+    expect(result.user).toEqual({ userId: 1, username: 'carlos', email: 'c@example.com', isAdmin: false });
   });
 
   it('returns user without email when backend omits it', async () => {
@@ -77,7 +77,7 @@ describe('login', () => {
     );
     const result = await login('maria', 'mypassword');
     expect(result.token).toBe('tok456');
-    expect(result.user).toEqual({ userId: 5, username: 'maria', email: 'm@example.com' });
+    expect(result.user).toEqual({ userId: 5, username: 'maria', email: 'm@example.com', isAdmin: false });
   });
 
   it('throws a localized error when credentials are invalid (401)', async () => {

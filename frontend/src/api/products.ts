@@ -200,3 +200,11 @@ export async function getAnalytics(): Promise<AnalyticsResult> {
     clear();
   }
 }
+
+export async function triggerEnrich(token: string): Promise<void> {
+  const res = await fetch('/api/enrich/trigger', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Error al lanzar el proceso de enriquecimiento');
+}

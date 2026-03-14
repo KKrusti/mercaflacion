@@ -14,6 +14,7 @@ interface AuthResponse {
   userId: number;
   username: string;
   email?: string;
+  isAdmin: boolean;
 }
 
 export async function register(username: string, password: string, email?: string): Promise<{ token: string; user: User }> {
@@ -32,7 +33,7 @@ export async function register(username: string, password: string, email?: strin
       throw new Error('Error al registrar el usuario');
     }
     const data: AuthResponse = await res.json();
-    return { token: data.token, user: { userId: data.userId, username: data.username, email: data.email } };
+    return { token: data.token, user: { userId: data.userId, username: data.username, email: data.email, isAdmin: data.isAdmin ?? false } };
   } finally {
     clear();
   }
@@ -52,7 +53,7 @@ export async function login(username: string, password: string): Promise<{ token
       throw new Error('Error al iniciar sesión');
     }
     const data: AuthResponse = await res.json();
-    return { token: data.token, user: { userId: data.userId, username: data.username, email: data.email } };
+    return { token: data.token, user: { userId: data.userId, username: data.username, email: data.email, isAdmin: data.isAdmin ?? false } };
   } finally {
     clear();
   }

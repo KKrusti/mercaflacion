@@ -50,7 +50,7 @@ describe('LoginModal', () => {
   });
 
   it('calls login with the form credentials', async () => {
-    mockLogin.mockResolvedValue({ token: 'tok', user: { userId: 1, username: 'carlos' } });
+    mockLogin.mockResolvedValue({ token: 'tok', user: { userId: 1, username: 'carlos', isAdmin: false } });
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password123' } });
@@ -59,7 +59,7 @@ describe('LoginModal', () => {
   });
 
   it('calls onAuth with the token and user after a successful login', async () => {
-    mockLogin.mockResolvedValue({ token: 'tok123', user: { userId: 2, username: 'carlos' } });
+    mockLogin.mockResolvedValue({ token: 'tok123', user: { userId: 2, username: 'carlos', isAdmin: false } });
     const { container } = renderModal();
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'carlos' } });
     fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'password123' } });
@@ -67,7 +67,7 @@ describe('LoginModal', () => {
     await waitFor(() =>
       expect(mockOnAuth).toHaveBeenCalledWith({
         token: 'tok123',
-        user: { userId: 2, username: 'carlos' },
+        user: { userId: 2, username: 'carlos', isAdmin: false },
       }),
     );
   });
@@ -95,7 +95,7 @@ describe('LoginModal', () => {
   });
 
   it('calls register in register mode with username, password and email', async () => {
-    mockRegister.mockResolvedValue({ token: 'tok', user: { userId: 3, username: 'nuevo' } });
+    mockRegister.mockResolvedValue({ token: 'tok', user: { userId: 3, username: 'nuevo', isAdmin: false } });
     const { container } = renderModal();
     fireEvent.click(screen.getByRole('button', { name: 'Registrarse' }));
     fireEvent.change(screen.getByLabelText('Usuario'), { target: { value: 'nuevo' } });

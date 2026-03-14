@@ -8,6 +8,7 @@ import ChangePasswordModal from './components/ChangePasswordModal';
 import HouseholdSection from './components/HouseholdSection';
 import AcceptInviteModal from './components/AcceptInviteModal';
 import { logout } from './api/auth';
+import { triggerEnrich } from './api/products';
 import type { ProductBrowserState } from './components/ProductBrowser';
 import type { AuthState } from './types';
 
@@ -69,12 +70,15 @@ interface UserMenuProps {
   username: string;
   email?: string;
   token: string;
+  isAdmin: boolean;
   onLogout: () => void;
   onChangePassword: () => void;
+  onTriggerEnrich: () => void;
 }
 
-function UserMenu({ username, email, token, onLogout, onChangePassword }: UserMenuProps) {
+function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword, onTriggerEnrich }: UserMenuProps) {
   const [open, setOpen] = useState(false);
+  const [enrichLabel, setEnrichLabel] = useState('Enriquecer imágenes');
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,6 +94,13 @@ function UserMenu({ username, email, token, onLogout, onChangePassword }: UserMe
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') setOpen(false);
+  }
+
+  function handleEnrich() {
+    setOpen(false);
+    onTriggerEnrich();
+    setEnrichLabel('Lanzado ✓');
+    setTimeout(() => setEnrichLabel('Enriquecer imágenes'), 3000);
   }
 
   return (
@@ -118,6 +129,16 @@ function UserMenu({ username, email, token, onLogout, onChangePassword }: UserMe
             onLeft={() => setOpen(false)}
           />
           <div className="user-menu__divider" />
+          {isAdmin && (
+            <button
+              type="button"
+              role="menuitem"
+              className="user-menu__item"
+              onClick={handleEnrich}
+            >
+              {enrichLabel}
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -186,6 +207,12 @@ export default function App() {
     saveAuth(cleared);
   }
 
+  function handleTriggerEnrich() {
+    if (auth.token) {
+      triggerEnrich(auth.token).catch(() => {});
+    }
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -205,8 +232,10 @@ export default function App() {
               username={auth.user.username}
               email={auth.user.email}
               token={auth.token ?? ''}
+              isAdmin={auth.user.isAdmin}
               onLogout={() => { void handleLogout(); }}
               onChangePassword={() => setShowChangePasswordModal(true)}
+              onTriggerEnrich={handleTriggerEnrich}
             />
           ) : (
             <button

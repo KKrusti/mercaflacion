@@ -9,6 +9,7 @@ type User struct {
 	Email        string    `json:"email,omitempty"`
 	PasswordHash string    `json:"-"` // never serialised to JSON
 	CreatedAt    time.Time `json:"createdAt"`
+	IsAdmin      bool      `json:"isAdmin"`
 }
 
 // PriceRecord represents a single price observation for a product,
