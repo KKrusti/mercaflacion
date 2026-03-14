@@ -1,11 +1,18 @@
 package auth_test
 
 import (
+	"os"
 	"testing"
 
 	"basket-cost/pkg/auth"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func TestMain(m *testing.M) {
+	// jwtSecret() fatals if JWT_SECRET is unset; provide a test-only value.
+	os.Setenv("JWT_SECRET", "test-only-secret-do-not-use-in-production-1234")
+	os.Exit(m.Run())
+}
 
 func TestHashPassword_And_CheckPassword(t *testing.T) {
 	plain := "supersecret123"

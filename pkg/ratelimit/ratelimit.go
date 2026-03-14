@@ -79,8 +79,17 @@ func (il *IPLimiter) cleanupLoop() {
 	}
 }
 
-// remoteIP extracts the client IP from r.RemoteAddr, stripping the port.
+// remoteIP returns the real client IP. Behind Vercel's edge proxy the true
+// client address is in X-Forwarded-For; r.RemoteAddr is the edge node IP.
+// X-Forwarded-For may be "client, proxy1, proxy2" — the leftmost value is
+// the original client. Falls back to r.RemoteAddr for direct connections.
 func remoteIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
 	addr := r.RemoteAddr
 	if idx := strings.LastIndex(addr, ":"); idx != -1 {
 		return addr[:idx]

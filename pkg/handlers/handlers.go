@@ -228,7 +228,15 @@ func (h *Handlers) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
-	if user == nil || auth.CheckPassword(req.Password, user.PasswordHash) != nil {
+	if user == nil {
+		// Run a dummy bcrypt comparison so that responses for unknown usernames
+		// take the same time as responses for known ones, preventing user enumeration
+		// via timing differences.
+		auth.CheckPassword(req.Password, "$2a$12$Av6rJQ69weFWdoKY8KtiteMfrR5SjNg0XSSpo0gCpPIKbnxmQBNm.")
+		http.Error(w, "Unauthorized: invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	if auth.CheckPassword(req.Password, user.PasswordHash) != nil {
 		http.Error(w, "Unauthorized: invalid credentials", http.StatusUnauthorized)
 		return
 	}

@@ -122,7 +122,9 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
 CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires_at ON revoked_tokens(expires_at);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
-UPDATE users SET is_admin = TRUE WHERE id = 227;
+-- Admin privileges must be granted manually via SQL:
+--   UPDATE users SET is_admin = TRUE WHERE username = '<your-username>';
+-- Never hardcode admin user IDs in schema DDL.
 
 CREATE TABLE IF NOT EXISTS ipc_rates (
 	year INTEGER          PRIMARY KEY,

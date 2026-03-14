@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -14,19 +15,24 @@ import (
 )
 
 const (
-	tokenTTL      = 24 * time.Hour // reduced from 72h for tighter expiry
-	bcryptCost    = 12
-	jwtSecretEnv  = "JWT_SECRET"
-	defaultSecret = "change-me-in-production"
+	tokenTTL     = 24 * time.Hour // reduced from 72h for tighter expiry
+	bcryptCost   = 12
+	jwtSecretEnv = "JWT_SECRET"
+	minSecretLen = 32
 )
 
-// jwtSecret returns the signing secret from the environment, falling back to
-// a hardcoded default that is only safe for local development.
+// jwtSecret returns the signing secret from the environment.
+// Fatals at startup if JWT_SECRET is missing or too short — there is no
+// insecure fallback to prevent accidental deployments with a known secret.
 func jwtSecret() []byte {
-	if s := os.Getenv(jwtSecretEnv); s != "" {
-		return []byte(s)
+	s := os.Getenv(jwtSecretEnv)
+	if s == "" {
+		log.Fatalf("auth: %s environment variable is required but not set", jwtSecretEnv)
 	}
-	return []byte(defaultSecret)
+	if len(s) < minSecretLen {
+		log.Fatalf("auth: %s must be at least %d characters (got %d)", jwtSecretEnv, minSecretLen, len(s))
+	}
+	return []byte(s)
 }
 
 // HashPassword returns the bcrypt hash of the plain-text password.
