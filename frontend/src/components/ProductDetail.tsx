@@ -405,6 +405,16 @@ export default function ProductDetail({ productId, onBack, token }: ProductDetai
               </div>
             );
           })()}
+          {product.priceHistory.length >= 1 && (() => {
+            const totalSpent = product.priceHistory.reduce((sum, r) => sum + r.price, 0);
+            return (
+              <div className="detail-header__total">
+                <span className="detail-header__total-label">Total gastado</span>
+                <span className="detail-header__total-value">{formatPrice(totalSpent)}</span>
+                <span className="detail-header__total-sub">{product.priceHistory.length} {product.priceHistory.length === 1 ? 'compra' : 'compras'}</span>
+              </div>
+            );
+          })()}
           {ipc !== null && ipc.accumulated_rate !== 0 && (
             <div className="detail-header__ipc">
               <span className="detail-header__ipc-label">

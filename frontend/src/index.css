@@ -755,6 +755,36 @@ body {
   color: var(--color-text-muted);
 }
 
+.detail-header__total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--color-border);
+  gap: 0.05rem;
+}
+
+.detail-header__total-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-subtle);
+}
+
+.detail-header__total-value {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.detail-header__total-sub {
+  font-size: 0.72rem;
+  color: var(--color-text-subtle);
+}
+
 /* ─── Image Editor ───────────────────────────────────────── */
 .detail-header__image-wrapper {
   position: relative;
