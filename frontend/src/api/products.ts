@@ -92,28 +92,37 @@ export async function uploadTicket(file: File): Promise<TicketUploadResult> {
   }
 }
 
-// Uploads multiple files concurrently. Individual failures are captured in the
-// summary without aborting the batch. onProgress is called after each file completes.
+// Uploads multiple files with limited concurrency to avoid overwhelming the database.
+// Individual failures are captured in the summary without aborting the batch.
+// onProgress is called after each file completes.
+const UPLOAD_CONCURRENCY = 4;
+
 export async function uploadTickets(
   files: File[],
   onProgress?: (done: number, total: number) => void,
 ): Promise<TicketUploadSummary> {
   let done = 0;
   const total = files.length;
+  type UploadItem = TicketUploadSummary['items'][number];
+  const results: UploadItem[] = [];
 
-  const results = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const result = await uploadTicket(file);
-        onProgress?.(++done, total);
-        return { file: file.name, ok: true as const, result };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        onProgress?.(++done, total);
-        return { file: file.name, ok: false as const, error: message };
-      }
-    }),
-  );
+  for (let i = 0; i < files.length; i += UPLOAD_CONCURRENCY) {
+    const batch = files.slice(i, i + UPLOAD_CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(async (file) => {
+        try {
+          const result = await uploadTicket(file);
+          onProgress?.(++done, total);
+          return { file: file.name, ok: true as const, result };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          onProgress?.(++done, total);
+          return { file: file.name, ok: false as const, error: message };
+        }
+      }),
+    );
+    results.push(...batchResults);
+  }
 
   return {
     total: results.length,
