@@ -395,39 +395,41 @@ export default function ProductDetail({ productId, onBack, token }: ProductDetai
               currentPrice={product.priceHistory[product.priceHistory.length - 1].price}
             />
           )}
-          {product.priceHistory.length >= 2 && (() => {
-            const maxRecord = product.priceHistory.reduce((a, b) => b.price > a.price ? b : a);
-            return (
-              <div className="detail-header__max-price">
-                <span className="detail-header__max-price-label">Máx.</span>
-                <span className="detail-header__max-price-value">{formatPrice(maxRecord.price)}</span>
-                <span className="detail-header__max-price-date">{formatDateFull(maxRecord.date)}</span>
-              </div>
-            );
-          })()}
-          {product.priceHistory.length >= 1 && (() => {
-            const totalSpent = product.priceHistory.reduce((sum, r) => sum + r.price, 0);
-            return (
-              <div className="detail-header__total">
-                <span className="detail-header__total-label">Total gastado</span>
-                <span className="detail-header__total-value">{formatPrice(totalSpent)}</span>
-                <span className="detail-header__total-sub">{product.priceHistory.length} {product.priceHistory.length === 1 ? 'compra' : 'compras'}</span>
-              </div>
-            );
-          })()}
-          {ipc !== null && ipc.accumulated_rate !== 0 && (
-            <div className="detail-header__ipc">
-              <span className="detail-header__ipc-label">
-                IPC Catalunya {ipc.from_year}–{ipc.to_year}
-              </span>
-              <span className="detail-header__ipc-value">
-                {ipc.accumulated_rate > 0 ? '+' : ''}
-                {(ipc.accumulated_rate * 100).toFixed(1).replace('.', ',')}%
-              </span>
-            </div>
-          )}
         </div>
       </div>
+
+      {product.priceHistory.length >= 1 && (() => {
+        const totalSpent = product.priceHistory.reduce((sum, r) => sum + r.price, 0);
+        const maxRecord = product.priceHistory.length >= 2
+          ? product.priceHistory.reduce((a, b) => b.price > a.price ? b : a)
+          : null;
+        return (
+          <div className="detail-stats">
+            <div className="detail-stat">
+              <span className="detail-stat__label">Total gastado</span>
+              <span className="detail-stat__value">{formatPrice(totalSpent)}</span>
+              <span className="detail-stat__sub">{product.priceHistory.length} {product.priceHistory.length === 1 ? 'compra' : 'compras'}</span>
+            </div>
+            {maxRecord && (
+              <div className="detail-stat">
+                <span className="detail-stat__label">Precio máximo</span>
+                <span className="detail-stat__value">{formatPrice(maxRecord.price)}</span>
+                <span className="detail-stat__sub">{formatDateFull(maxRecord.date)}</span>
+              </div>
+            )}
+            {ipc !== null && ipc.accumulated_rate !== 0 && (
+              <div className="detail-stat">
+                <span className="detail-stat__label">IPC Catalunya {ipc.from_year}–{ipc.to_year}</span>
+                <span className="detail-stat__value">
+                  {ipc.accumulated_rate > 0 ? '+' : ''}
+                  {(ipc.accumulated_rate * 100).toFixed(1).replace('.', ',')}%
+                </span>
+                <span className="detail-stat__sub">inflación acumulada</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <hr className="detail-divider" />
 

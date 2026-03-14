@@ -702,15 +702,26 @@ body {
   margin-top: 0.15rem;
 }
 
-.detail-header__max-price {
+.detail-stats {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-top: 0.6rem;
-  gap: 0.05rem;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-bottom: 1.25rem;
 }
 
-.detail-header__max-price-label {
+.detail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1;
+  min-width: 120px;
+  padding: 0.6rem 0.875rem;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.detail-stat__label {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -718,69 +729,15 @@ body {
   color: var(--color-text-subtle);
 }
 
-.detail-header__max-price-value {
+.detail-stat__value {
   font-family: 'Rubik', sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.detail-header__max-price-date {
-  font-size: 0.72rem;
-  color: var(--color-text-subtle);
-}
-
-.detail-header__ipc {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px dashed var(--color-border);
-  gap: 0.05rem;
-}
-
-.detail-header__ipc-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-subtle);
-}
-
-.detail-header__ipc-value {
-  font-family: 'Rubik', sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-
-.detail-header__total {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-top: 0.6rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--color-border);
-  gap: 0.05rem;
-}
-
-.detail-header__total-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-subtle);
-}
-
-.detail-header__total-value {
-  font-family: 'Rubik', sans-serif;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--color-text);
+  line-height: 1.2;
 }
 
-.detail-header__total-sub {
+.detail-stat__sub {
   font-size: 0.72rem;
   color: var(--color-text-subtle);
 }
