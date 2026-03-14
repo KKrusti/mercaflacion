@@ -10,14 +10,22 @@ Always communicate with the user in **Spanish**, regardless of the language used
 
 Before writing any code, **read** the corresponding SKILL.md file and **print the skill name visibly** in the response using the format `[skill: <name>]`. This must appear before any code or implementation detail.
 
-| Situation | Skills to load | Path                                                                                            |
-|-----------|---------------|-------------------------------------------------------------------------------------------------|
-| Backend changes | `golang-pro` | `.claude/skills/golang-pro/SKILL.md`                                                            |
+| Situation | Skills to load | Path |
+|-----------|---------------|------|
+| Backend changes | `golang-pro` | `.claude/skills/golang-pro/SKILL.md` |
 | Frontend / UI changes | `vercel-react-best-practices` **+** `ui-ux-pro-max` | `.claude/skills/vercel-react-best-practices/SKILL.md` · `.claude/skills/ui-ux-pro-max/SKILL.md` |
 
 `vercel-react-best-practices` and `ui-ux-pro-max` are complementary and must always be loaded together for any frontend or UI work.
 
 **This is mandatory and non-negotiable.** The user explicitly requires seeing `[skill: <name>]` printed in the response to verify correct skill usage.
+
+## Environment Variables
+
+Required locally (put in `.env`):
+- `DATABASE_URL` — Neon PostgreSQL DSN
+- `JWT_SECRET` — min 32 characters; generate with `openssl rand -base64 32`
+
+Both are validated at server startup — the process exits immediately if either is missing or too short.
 
 ## Commands
 
@@ -30,7 +38,7 @@ task dev:deps
 
 # Backend only
 task backend
-# or: cd backend && go run ./cmd/server/main.go
+# or: go run ./cmd/devserver
 
 # Frontend only
 cd frontend && npm run dev
@@ -39,12 +47,12 @@ cd frontend && npm run dev
 cd frontend && npx tsc --noEmit
 
 # Tests
-task test                                                        # both suites
-task test:backend                                                # Go tests
-task test:frontend                                               # Vitest
-cd backend && go test ./internal/handlers/                       # single package
-cd backend && go test -run TestFunctionName ./internal/handlers/ # single test
-cd frontend && npm run test:watch                                 # watch mode
+task test                                          # both suites
+task test:backend                                  # Go tests (requires DATABASE_URL)
+task test:frontend                                 # Vitest
+go test ./pkg/handlers/                            # single package (from repo root)
+go test -run TestFunctionName ./pkg/handlers/      # single test
+cd frontend && npm run test:watch                  # watch mode
 cd frontend && npm run test:coverage
 
 # E2E tests (Playwright — Chromium + mobile Poco X6 Pro)
@@ -52,31 +60,33 @@ task test:e2e
 task test:e2e:headed   # with visible browser window
 
 # Seed the DB with sample receipts
-cd backend && go run ./cmd/seed/main.go -dir ./seed
+go run ./cmd/seed -dir ./sample-tickets
 
 # Enrich product images from the Mercadona API
 task enrich
-# or: cd backend && go run ./cmd/enrich/main.go -db basket-cost.db
+# or: go run ./cmd/enrich
 
-# DB utilities
-task db:reset     # wipe all data (prompts for confirmation)
-task db:sanitize  # detect and remove duplicate price records
-task kill         # kill the backend process on :8080
+# Kill the backend process on :8080
+task kill
 ```
+
+> **Note:** Backend tests use a real Neon DB. `go test -p 1 ./...` runs packages sequentially to avoid `truncateAll` deadlocks. Tests are skipped if `DATABASE_URL` is not set.
 
 ## Architecture
 
-Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api` to backend).
+Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api` to backend). Deployed to **Vercel** — the Go backend runs as a single serverless function (`api/index.go`).
 
-**Backend layout (`backend/`):**
-- `cmd/server/main.go` — wiring only: routing, CORS middleware, `ListenAndServe`
+**Backend layout (repo root):**
+- `api/index.go` — Vercel serverless entry point; wires routing, middleware, and `ListenAndServe` via `sync.Once`
+- `cmd/devserver/main.go` — local dev server; delegates to the same `api.Handler`
 - `cmd/seed/` and `cmd/enrich/` — standalone CLIs; no business logic in `cmd/`
-- `internal/models/` — pure data structs, no logic
-- `internal/store/` — `Store` interface + `SQLiteStore` implementation (repository layer)
-- `internal/handlers/` — HTTP layer only, delegates to other packages
-- `internal/ticket/` — full PDF import pipeline: `extractor` → `parser` → `importer` (persists via store)
-- `internal/enricher/` — product image enrichment from the public Mercadona catalogue API
-- `internal/database/db.go` — SQLite connection (CGO-free `modernc.org/sqlite`), WAL pragmas, schema migrations
+- `pkg/models/` — pure data structs, no logic
+- `pkg/store/` — `Store` interface + `PostgresStore` implementation (repository layer)
+- `pkg/handlers/` — HTTP layer only, delegates to other packages
+- `pkg/ticket/` — full PDF import pipeline: `extractor` → `parser` → `importer` (persists via store)
+- `pkg/enricher/` — product image enrichment from the public Mercadona catalogue API
+- `pkg/database/db.go` — PostgreSQL connection pool (pgx/v5), shared singleton via `sync.Once`, schema migrations
+- `pkg/middleware/` — JWT auth middleware; injects `userID` into request context
 
 **Frontend layout (`frontend/src/`):**
 - `App.tsx` — app shell; owns `browserState` for persistence across navigation
@@ -90,6 +100,7 @@ Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api`
 |--------|------|-------------|
 | `POST` | `/api/auth/register` | Register new user |
 | `POST` | `/api/auth/login` | Login → returns JWT |
+| `POST` | `/api/auth/logout` | Revoke token server-side |
 | `PATCH` | `/api/auth/password` | Change password (auth required) |
 | `GET` | `/api/products?q=<query>` | Search; empty `q` returns all, ordered by most-recently-purchased |
 | `GET` | `/api/products/<id>` | Product detail + full price history |
@@ -98,20 +109,20 @@ Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api`
 | `GET` | `/api/analytics` | Top price increases + most-purchased products |
 | `GET` | `/api/household` | List household members (auth required) |
 | `DELETE` | `/api/household` | Leave household (auth required) |
-| `POST` | `/api/household/invite` | Create 24h invitation token (auth required) |
+| `POST` | `/api/household/invite` | Create 24h invitation token — invalidates any previous token (auth required) |
 | `POST` | `/api/household/accept?token=<tok>` | Accept invitation and join household (auth required) |
 
 Multiple files are uploaded by calling `POST /api/tickets` once per file in parallel (`Promise.all`). No batch endpoint exists.
 
 **Auth & multi-tenancy:**
-- JWT (HS256, 72 h TTL) issued at login; sent as `Authorization: Bearer <token>` on every authenticated request.
-- `cmd/server/main.go` middleware extracts the user ID from the token and stores it in `context` via `handlers.UserIDContextKey`. Handlers call `handlers.UserIDFromContext(r)` — returns `0` for unauthenticated requests.
-- All read queries scope data by household: `store.householdUserIDs(userID)` expands one user to all co-members, then `userIDsInClause()` builds `user_id IN (?,?)` or `user_id IS NULL` for seed/anonymous data. Write queries (ticket upload, mark processed) still use the individual `userID`.
-- `CreateHouseholdInvitation` auto-creates a household for the inviter if they don't have one yet.
+- JWT (HS256, 24 h TTL) issued at login; sent as `Authorization: Bearer <token>` on every authenticated request.
+- `pkg/middleware/middleware.go` extracts the user ID from the token and stores it in `context` via `handlers.UserIDContextKey`. Handlers call `handlers.UserIDFromContext(r)` — returns `0` for unauthenticated requests.
+- All read queries scope data by household: `store.householdUserIDs(userID)` expands one user to all co-members, then `userIDsInClause()` builds `user_id IN ($1,$2)` or `user_id IS NULL` for seed/anonymous data. Write queries (ticket upload, mark processed) still use the individual `userID`.
+- `CreateHouseholdInvitation` auto-creates a household for the inviter if they don't have one yet, and deletes any existing invitation for that household first.
 
-**Enricher pipeline (`internal/enricher/`):**
+**Enricher pipeline (`pkg/enricher/`):**
 - `normalise` → `translateCatalan` (Catalan→Spanish dict, `catalan_dict.go`) → `keywords` (stop-word filter + trailing-`s` stem) → `bestMatch` (Dice coefficient ≥ 0.5).
-- `bestMatch` additionally requires `matched ≥ 2` when the local product has ≥ 2 keywords, preventing single-token false positives (e.g. "patatas" matching "Patatas 3 kg").
+- `bestMatch` additionally requires `matched ≥ 2` when the local product has ≥ 2 keywords, preventing single-token false positives.
 - The Mercadona catalogue index is cached in memory for 24 h; `Schedule()` coalesces concurrent upload signals so at most one catalogue download runs at a time.
 
 ## Key Design Patterns
@@ -133,25 +144,32 @@ useEffect(() => {
 
 **PriceChangeBadge:** shows `((current - first) / first) × 100%`; only rendered when ≥ 2 price records. CSS classes: `--up` (red), `--down` (green), `--flat` (neutral).
 
+**Mercadona product IDs** can include a variant suffix (e.g. `82830.1`). The regex `(\d+(?:\.\d+)?)` must be used wherever a product ID is extracted from a URL.
+
 ## Testing Policy
 
 Tests are mandatory for every new piece of code.
 
-- **Go:** `_test.go` in the same package; use `net/http/httptest` for handler tests.
+- **Go:** `_test.go` in the same package; use `net/http/httptest` for handler tests. Integration tests against Neon skip automatically when `DATABASE_URL` is unset.
 - **React/TS:** co-located `*.test.tsx` per component, `*.test.ts` per API/util module; use Vitest + `@testing-library/react`.
 - Mock third-party libs that don't render in jsdom (e.g. `recharts`) with `vi.mock(...)`.
 - Prefer semantic queries (`getByRole`, `getByLabelText`); fall back to `document.querySelector` with a CSS class only when the same text appears in multiple nodes.
 - Run both suites and confirm they pass before considering a task done.
 
+**E2E test maintenance (mandatory):** When adding or modifying any feature that touches auth, route guards, or app-level state:
+- Review ALL specs in `frontend/e2e/` and add `loginViaStorage(page)` in `beforeEach` for specs that need authentication.
+- Inject sessions via `page.addInitScript()` (runs before React mounts) — **not** `page.evaluate()` + `page.reload()`.
+- If a new API stub is added in `helpers.ts`, add it to every spec that hits that endpoint.
+
 ## Go Style Guidelines
 
 - Guard-clause / early-return error handling; `http.Error(w, msg, code)` + `return` in handlers; `log.Fatal` for startup failures in `main()`.
 - `json.NewEncoder(w).Encode(v)` for JSON responses; always set `Content-Type: application/json` first.
-- CORS is handled by a hand-rolled middleware in `cmd/server/main.go` — do not add external CORS libraries.
+- CORS is handled by a hand-rolled middleware in `api/index.go` — do not add external CORS libraries.
 - All exported struct fields must have `json:"..."` tags; use `omitempty` on optional fields.
-- Imports: single grouped block, stdlib first then internal (goimports order), no blank-line separation between stdlib and internal. Prefer stdlib `errors` and `context` — do not use `github.com/pkg/errors` or `golang.org/x/net/context`.
+- Imports: single grouped block, stdlib first then internal (goimports order), no blank-line separation between stdlib and internal. Prefer stdlib `errors` and `context`.
 - Acronyms: `GetProductByID` not `GetProductById`. No Hungarian notation or type suffixes.
-- Schema changes only through the migration table in `internal/database/db.go` — never raw `ALTER TABLE`.
+- Schema changes only through the migration table in `pkg/database/db.go` — never raw `ALTER TABLE` outside migrations.
 
 ## TypeScript / React Style Guidelines
 
@@ -165,7 +183,6 @@ Tests are mandatory for every new piece of code.
 - SVG icons are defined as small inline function components in the same file — do not use emoji as UI icons.
 - Inline arrow formatters (`formatPrice`, `formatDate`) are fine inside a component; extract to `src/utils/` only when used in more than one component.
 - Code identifiers and comments may be in English or Spanish; be consistent within a file. UI text and labels must always be in Spanish.
-
 
 ## Task Tracking
 
