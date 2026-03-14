@@ -131,10 +131,9 @@ body {
   cursor: pointer;
 }
 
-.app-header__logo-svg {
-  /* viewBox 400×100 → ratio 4:1 */
-  height: 30px;
-  width: 120px;
+.app-header__logo-img {
+  height: 48px;
+  width: auto;
   flex-shrink: 0;
 }
 
@@ -1177,9 +1176,8 @@ body {
     gap: 1rem;
   }
 
-  .app-header__logo-svg {
-    height: 36px;
-    width: 144px;
+  .app-header__logo-img {
+    height: 56px;
   }
 
   .browser-grid--3 {

@@ -36,16 +36,11 @@ type Tab = 'products' | 'analytics';
 
 function AppLogo() {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 400 100"
-      aria-label="Mercaflación"
-      role="img"
-      className="app-header__logo-svg"
-    >
-      <rect x="50" y="10" width="300" height="80" rx="40" ry="40" fill="#00A859" stroke="#FFFFFF" strokeWidth="4"/>
-      <text x="200" y="60" fontFamily="Arial, sans-serif" fontSize="32" fontWeight="bold" fill="#FFFFFF" textAnchor="middle" letterSpacing="1">MERCAFLACION</text>
-    </svg>
+    <img
+      src="/logo.png"
+      alt="Mercaflación"
+      className="app-header__logo-img"
+    />
   );
 }
 
