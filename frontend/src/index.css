@@ -132,7 +132,7 @@ body {
 }
 
 .app-header__logo-img {
-  height: 48px;
+  height: 64px;
   width: auto;
   flex-shrink: 0;
 }
@@ -1177,7 +1177,7 @@ body {
   }
 
   .app-header__logo-img {
-    height: 56px;
+    height: 72px;
   }
 
   .browser-grid--3 {
