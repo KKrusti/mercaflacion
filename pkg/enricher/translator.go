@@ -23,12 +23,14 @@ type Translator interface {
 }
 
 // myMemoryResponse holds the subset of fields returned by the MyMemory API.
+// ResponseStatus is json.Number because the API has returned both "200" (string)
+// and 200 (number) depending on the endpoint version.
 type myMemoryResponse struct {
 	ResponseData struct {
 		TranslatedText string  `json:"translatedText"`
 		Match          float64 `json:"match"`
 	} `json:"responseData"`
-	ResponseStatus string `json:"responseStatus"`
+	ResponseStatus json.Number `json:"responseStatus"`
 }
 
 // MyMemoryTranslator calls the free MyMemory translation API (ca→es) and
