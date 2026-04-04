@@ -50,6 +50,12 @@ type Store interface {
 	CreateHouseholdInvitation(inviterID int64) (string, error)
 	GetHouseholdInvitation(token string) (*models.HouseholdInvitation, error)
 	DeleteHouseholdInvitation(token string) error
+
+	UpsertEmailAccount(userID int64, emailAddress, encryptedPassword, imapHost string, imapPort int) error
+	GetEmailAccount(userID int64) (*models.EmailAccount, error)
+	DeleteEmailAccount(userID int64) error
+	GetAllEmailAccounts() ([]models.EmailAccount, error)
+	UpdateEmailAccountLastUID(id int64, uid uint32) error
 }
 
 // PostgresStore is the production Store backed by a *sql.DB (PostgreSQL).
@@ -841,6 +847,83 @@ func (s *PostgresStore) GetAccumulatedIPC(fromYear int) (rate float64, toYear in
 		return 0, fromYear, nil
 	}
 	return accumulated - 1, toYear, nil
+}
+
+// UpsertEmailAccount inserts or updates the IMAP account for userID.
+// Only one account per user is allowed (enforced by UNIQUE constraint on user_id).
+func (s *PostgresStore) UpsertEmailAccount(userID int64, emailAddress, encryptedPassword, imapHost string, imapPort int) error {
+	_, err := s.db.Exec(`
+		INSERT INTO email_accounts (user_id, email_address, encrypted_password, imap_host, imap_port)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id) DO UPDATE
+			SET email_address      = EXCLUDED.email_address,
+			    encrypted_password = EXCLUDED.encrypted_password,
+			    imap_host          = EXCLUDED.imap_host,
+			    imap_port          = EXCLUDED.imap_port`,
+		userID, emailAddress, encryptedPassword, imapHost, imapPort,
+	)
+	if err != nil {
+		return fmt.Errorf("upsert email account for user %d: %w", userID, err)
+	}
+	return nil
+}
+
+// GetEmailAccount returns the IMAP account registered for userID, or nil if none.
+func (s *PostgresStore) GetEmailAccount(userID int64) (*models.EmailAccount, error) {
+	var a models.EmailAccount
+	err := s.db.QueryRow(`
+		SELECT id, user_id, email_address, encrypted_password, imap_host, imap_port, last_uid_seen, created_at
+		FROM email_accounts WHERE user_id = $1`, userID,
+	).Scan(&a.ID, &a.UserID, &a.EmailAddress, &a.EncryptedPassword, &a.IMAPHost, &a.IMAPPort, &a.LastUIDSeen, &a.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get email account for user %d: %w", userID, err)
+	}
+	return &a, nil
+}
+
+// DeleteEmailAccount removes the IMAP account for userID.
+func (s *PostgresStore) DeleteEmailAccount(userID int64) error {
+	_, err := s.db.Exec(`DELETE FROM email_accounts WHERE user_id = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("delete email account for user %d: %w", userID, err)
+	}
+	return nil
+}
+
+// GetAllEmailAccounts returns every registered email account (used by the poller).
+func (s *PostgresStore) GetAllEmailAccounts() ([]models.EmailAccount, error) {
+	rows, err := s.db.Query(`
+		SELECT id, user_id, email_address, encrypted_password, imap_host, imap_port, last_uid_seen, created_at
+		FROM email_accounts ORDER BY id ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("get all email accounts: %w", err)
+	}
+	defer rows.Close()
+
+	var accounts []models.EmailAccount
+	for rows.Next() {
+		var a models.EmailAccount
+		if err := rows.Scan(&a.ID, &a.UserID, &a.EmailAddress, &a.EncryptedPassword, &a.IMAPHost, &a.IMAPPort, &a.LastUIDSeen, &a.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan email account: %w", err)
+		}
+		accounts = append(accounts, a)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate email accounts: %w", err)
+	}
+	return accounts, nil
+}
+
+// UpdateEmailAccountLastUID advances the last-seen IMAP UID for account id.
+func (s *PostgresStore) UpdateEmailAccountLastUID(id int64, uid uint32) error {
+	_, err := s.db.Exec(`UPDATE email_accounts SET last_uid_seen = $1 WHERE id = $2`, uid, id)
+	if err != nil {
+		return fmt.Errorf("update last_uid_seen for email account %d: %w", id, err)
+	}
+	return nil
 }
 
 // generateToken returns a cryptographically random 32-byte hex string (64 chars).

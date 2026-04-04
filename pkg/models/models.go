@@ -103,3 +103,16 @@ type HouseholdInvitation struct {
 	InviterID   int64     `json:"-"`
 	ExpiresAt   time.Time `json:"-"`
 }
+
+// EmailAccount stores the IMAP credentials for automatic receipt ingestion.
+// The password is stored encrypted; callers must decrypt before use.
+type EmailAccount struct {
+	ID                int64     `json:"id"`
+	UserID            int64     `json:"userId"`
+	EmailAddress      string    `json:"emailAddress"`
+	EncryptedPassword string    `json:"-"` // never serialised to JSON
+	IMAPHost          string    `json:"imapHost"`
+	IMAPPort          int       `json:"imapPort"`
+	LastUIDSeen       uint32    `json:"lastUidSeen"`
+	CreatedAt         time.Time `json:"createdAt"`
+}

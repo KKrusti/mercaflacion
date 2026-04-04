@@ -122,6 +122,17 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
 CREATE INDEX IF NOT EXISTS idx_revoked_tokens_expires_at ON revoked_tokens(expires_at);
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE TABLE IF NOT EXISTS email_accounts (
+	id                 BIGSERIAL   PRIMARY KEY,
+	user_id            BIGINT      NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+	email_address      TEXT        NOT NULL,
+	encrypted_password TEXT        NOT NULL,
+	imap_host          TEXT        NOT NULL DEFAULT 'imap.gmail.com',
+	imap_port          INTEGER     NOT NULL DEFAULT 993,
+	last_uid_seen      BIGINT      NOT NULL DEFAULT 0,
+	created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 -- Admin privileges must be granted manually via SQL:
 --   UPDATE users SET is_admin = TRUE WHERE username = '<your-username>';
 -- Never hardcode admin user IDs in schema DDL.

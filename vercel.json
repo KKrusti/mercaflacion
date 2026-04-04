@@ -22,5 +22,11 @@
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/email-poll",
+      "schedule": "0 8 */3 * *"
+    }
   ]
 }

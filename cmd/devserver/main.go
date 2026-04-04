@@ -10,6 +10,8 @@
 package main
 
 import (
+	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,6 +20,10 @@ import (
 	"time"
 
 	handler "basket-cost/api"
+	"basket-cost/pkg/database"
+	"basket-cost/pkg/emailfetcher"
+	"basket-cost/pkg/store"
+	"basket-cost/pkg/ticket"
 )
 
 func main() {
@@ -43,6 +49,31 @@ func main() {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
+	}
+
+	// Start the email poller in the background if configured.
+	if hexKey := os.Getenv("EMAIL_ENCRYPTION_KEY"); hexKey != "" {
+		key, err := hex.DecodeString(hexKey)
+		if err != nil || len(key) != 32 {
+			log.Fatal("EMAIL_ENCRYPTION_KEY must be a 64-character hex string (32 bytes)")
+		}
+		db, err := database.Open()
+		if err != nil {
+			log.Fatalf("email poller: open db: %v", err)
+		}
+		s := store.New(db)
+		imp := ticket.NewImporter(ticket.NewExtractor(), ticket.NewMercadonaParser(), s)
+		fetcher := emailfetcher.New(s, imp, key)
+
+		interval := 48 * time.Hour
+		if v := os.Getenv("EMAIL_POLL_INTERVAL"); v != "" {
+			if d, err := time.ParseDuration(v); err == nil {
+				interval = d
+			}
+		}
+		ctx := context.Background()
+		go emailfetcher.RunPoller(ctx, fetcher, interval)
+		log.Printf("Email poller started (interval=%v)", interval)
 	}
 
 	fmt.Printf("Basket Cost API (dev) running on http://localhost%s\n", port)
