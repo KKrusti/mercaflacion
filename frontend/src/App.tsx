@@ -9,7 +9,7 @@ import ChangePasswordModal from './components/ChangePasswordModal';
 import HouseholdSection from './components/HouseholdSection';
 import AcceptInviteModal from './components/AcceptInviteModal';
 import { logout } from './api/auth';
-import { triggerEnrich } from './api/products';
+import { triggerEnrich, getEmailAccount } from './api/products';
 import type { ProductBrowserState } from './components/ProductBrowser';
 import type { AuthState } from './types';
 
@@ -99,7 +99,17 @@ interface UserMenuProps {
 function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword, onTriggerEnrich }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [enrichLabel, setEnrichLabel] = useState('Enriquecer imágenes');
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    getEmailAccount().then((acc) => {
+      if (!cancelled) setLinkedEmail(acc?.emailAddress ?? null);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -142,6 +152,12 @@ function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword,
           <div className="user-menu__info">
             <span className="user-menu__info-name">{username}</span>
             {email && <span className="user-menu__info-email">{email}</span>}
+            {linkedEmail && (
+              <span className="user-menu__info-linked-email">
+                <span className="user-menu__info-linked-label">Correo asociado</span>
+                {linkedEmail}
+              </span>
+            )}
           </div>
           <HouseholdSection
             token={token}

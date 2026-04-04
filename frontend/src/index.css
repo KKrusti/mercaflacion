@@ -2107,6 +2107,29 @@ body {
   text-overflow: ellipsis;
 }
 
+.user-menu__info-linked-email {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px dashed var(--color-border);
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-menu__info-linked-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6b7280);
+  opacity: 0.7;
+}
+
 /* ─── User-menu divider ──────────────────────────────────── */
 .user-menu__divider {
   height: 1px;

@@ -201,6 +201,21 @@ export async function getAnalytics(): Promise<AnalyticsResult> {
   }
 }
 
+export async function getEmailAccount(): Promise<{ emailAddress: string } | null> {
+  const { signal, clear } = withTimeout(READ_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API_BASE}/email-account`, {
+      signal,
+      headers: authHeaders(),
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Email account fetch failed: ${res.statusText}`);
+    return res.json() as Promise<{ emailAddress: string }>;
+  } finally {
+    clear();
+  }
+}
+
 export async function triggerEnrich(token: string): Promise<void> {
   const res = await fetch('/api/enrich/trigger', {
     method: 'POST',
