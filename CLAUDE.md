@@ -27,6 +27,11 @@ Required locally (put in `.env`):
 
 Both are validated at server startup — the process exits immediately if either is missing or too short.
 
+Optional (email ingestion):
+- `EMAIL_ENCRYPTION_KEY` — 64-char hex (32 bytes); generate with `openssl rand -hex 32`. If absent, email ingestion is disabled.
+- `CRON_SECRET` — protects `GET /api/cron/email-poll`; sent as `X-Cron-Secret` header.
+- `EMAIL_POLL_INTERVAL` — polling interval for devserver (default `48h`). Vercel uses the schedule in `vercel.json`.
+
 ## Commands
 
 ```bash
@@ -85,12 +90,16 @@ Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api`
 - `pkg/handlers/` — HTTP layer only, delegates to other packages
 - `pkg/ticket/` — full PDF import pipeline: `extractor` → `parser` → `importer` (persists via store)
 - `pkg/enricher/` — product image enrichment from the public Mercadona catalogue API
+- `pkg/emailfetcher/` — IMAP poller: connects to Gmail, extracts PDF attachments, feeds them through `pkg/ticket/`. `RunPoller` runs as a goroutine in devserver; Vercel uses a cron job hitting `/api/cron/email-poll`.
+- `pkg/crypto/` — AES-256-GCM encrypt/decrypt for email app passwords stored in DB
 - `pkg/database/db.go` — PostgreSQL connection pool (pgx/v5), shared singleton via `sync.Once`, schema migrations
-- `pkg/middleware/` — JWT auth middleware; injects `userID` into request context
+- `pkg/middleware/` — CORS, security headers, JWT auth; injects `userID` into request context
 
 **Frontend layout (`frontend/src/`):**
 - `App.tsx` — app shell; owns `browserState` for persistence across navigation
-- `api/products.ts` — all `fetch` calls; throws `Error` on non-OK responses
+- `api/products.ts` — product, ticket, analytics, email-account fetch calls
+- `api/auth.ts` — login, register, logout, change-password calls
+- `api/household.ts` — household management calls
 - `types/index.ts` — shared TypeScript interfaces
 - `index.css` — design system: CSS variables + all component styles (no CSS modules)
 - Components are co-located with their `*.test.tsx` files
@@ -111,6 +120,10 @@ Two-tier SPA: Go REST API on `:8080` + React/Vite SPA on `:5173` (proxies `/api`
 | `DELETE` | `/api/household` | Leave household (auth required) |
 | `POST` | `/api/household/invite` | Create 24h invitation token — invalidates any previous token (auth required) |
 | `POST` | `/api/household/accept?token=<tok>` | Accept invitation and join household (auth required) |
+| `POST` | `/api/email-account` | Register/update Gmail IMAP account for automatic receipt ingestion (auth required) |
+| `GET` | `/api/email-account` | Get registered email account info, no password (auth required) |
+| `DELETE` | `/api/email-account` | Remove registered email account (auth required) |
+| `GET` | `/api/cron/email-poll` | Trigger IMAP poll manually or via Vercel Cron (requires `X-Cron-Secret` header) |
 
 Multiple files are uploaded by calling `POST /api/tickets` once per file in parallel (`Promise.all`). No batch endpoint exists.
 
@@ -165,7 +178,7 @@ Tests are mandatory for every new piece of code.
 
 - Guard-clause / early-return error handling; `http.Error(w, msg, code)` + `return` in handlers; `log.Fatal` for startup failures in `main()`.
 - `json.NewEncoder(w).Encode(v)` for JSON responses; always set `Content-Type: application/json` first.
-- CORS is handled by a hand-rolled middleware in `api/index.go` — do not add external CORS libraries.
+- CORS is handled by a hand-rolled middleware in `pkg/middleware/middleware.go` — do not add external CORS libraries.
 - All exported struct fields must have `json:"..."` tags; use `omitempty` on optional fields.
 - Imports: single grouped block, stdlib first then internal (goimports order), no blank-line separation between stdlib and internal. Prefer stdlib `errors` and `context`.
 - Acronyms: `GetProductByID` not `GetProductById`. No Hungarian notation or type suffixes.

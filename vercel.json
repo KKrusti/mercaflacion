@@ -26,7 +26,7 @@
   "crons": [
     {
       "path": "/api/cron/email-poll",
-      "schedule": "0 8 */3 * *"
+      "schedule": "0 8 * * *"
     }
   ]
 }

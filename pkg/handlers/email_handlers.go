@@ -167,9 +167,9 @@ func (h *Handlers) CronEmailPollHandler(poller EmailPoller) http.HandlerFunc {
 			}
 		}
 
-		go poller.PollAll(r.Context())
+		poller.PollAll(r.Context())
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "polling started"}) //nolint:errcheck
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"}) //nolint:errcheck
 	}
 }
