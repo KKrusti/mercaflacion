@@ -161,6 +161,12 @@ func (h *Handlers) CronEmailPollHandler(poller EmailPoller) http.HandlerFunc {
 			if provided == "" {
 				provided = r.URL.Query().Get("cron_secret")
 			}
+			// Vercel Cron Jobs inject the secret as "Authorization: Bearer <CRON_SECRET>"
+			if provided == "" {
+				if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+					provided = strings.TrimPrefix(auth, "Bearer ")
+				}
+			}
 			if !strings.EqualFold(provided, secret) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
