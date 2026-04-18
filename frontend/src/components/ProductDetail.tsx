@@ -251,6 +251,31 @@ function PriceChangeBadge({ firstPrice, currentPrice }: PriceChangeBadgeProps) {
   );
 }
 
+function ProductDetailSkeleton({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="product-detail" aria-busy="true" aria-label="Cargando producto">
+      <button className="back-btn" onClick={onBack} aria-label="Volver a la búsqueda">
+        <BackArrowIcon />
+        Volver
+      </button>
+      <div className="detail-header">
+        <div className="skeleton" style={{ width: 80, height: 80, borderRadius: 'var(--radius-md)', flexShrink: 0 }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div className="skeleton" style={{ height: 20, width: '70%', borderRadius: 'var(--radius-sm)' }} />
+          <div className="skeleton" style={{ height: 14, width: '40%', borderRadius: 'var(--radius-sm)' }} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'flex-end' }}>
+          <div className="skeleton" style={{ height: 26, width: 72, borderRadius: 'var(--radius-sm)' }} />
+          <div className="skeleton" style={{ height: 14, width: 52, borderRadius: 'var(--radius-sm)' }} />
+        </div>
+      </div>
+      <div className="skeleton" style={{ height: 80, marginTop: '1rem', borderRadius: 'var(--radius-md)' }} />
+      <div className="skeleton" style={{ height: 280, marginTop: '1rem', borderRadius: 'var(--radius-md)' }} />
+      <div className="skeleton" style={{ height: 180, marginTop: '1rem', borderRadius: 'var(--radius-md)' }} />
+    </div>
+  );
+}
+
 export default function ProductDetail({ productId, onBack, token }: ProductDetailProps) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -316,7 +341,7 @@ export default function ProductDetail({ productId, onBack, token }: ProductDetai
   }
 
   if (loading) {
-    return <div className="loading">Cargando producto...</div>;
+    return <ProductDetailSkeleton onBack={onBack} />;
   }
 
   if (!product) {

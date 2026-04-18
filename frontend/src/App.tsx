@@ -54,6 +54,15 @@ function UserIcon() {
   );
 }
 
+function CheckSmallIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2.5"
+      strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+      <polyline points="2 8 6 12 14 4" />
+    </svg>
+  );
+}
+
 function ChevronDownIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="user-menu__chevron">
@@ -98,7 +107,7 @@ interface UserMenuProps {
 
 function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword, onTriggerEnrich }: UserMenuProps) {
   const [open, setOpen] = useState(false);
-  const [enrichLabel, setEnrichLabel] = useState('Enriquecer imágenes');
+  const [enrichDone, setEnrichDone] = useState(false);
   const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -129,8 +138,8 @@ function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword,
   function handleEnrich() {
     setOpen(false);
     onTriggerEnrich();
-    setEnrichLabel('Lanzado ✓');
-    setTimeout(() => setEnrichLabel('Enriquecer imágenes'), 3000);
+    setEnrichDone(true);
+    setTimeout(() => setEnrichDone(false), 3000);
   }
 
   return (
@@ -172,7 +181,7 @@ function UserMenu({ username, email, token, isAdmin, onLogout, onChangePassword,
               className="user-menu__item"
               onClick={handleEnrich}
             >
-              {enrichLabel}
+              {enrichDone ? <><CheckSmallIcon /> Lanzado</> : 'Enriquecer imágenes'}
             </button>
           )}
           <button
@@ -208,9 +217,11 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState>(loadAuth);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(
-    () => (document.documentElement.getAttribute('data-theme') as 'light' | 'dark') ?? 'light',
-  );
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const stored = localStorage.getItem('mercaflacion_theme');
+    if (stored === 'light' || stored === 'dark') return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
 
   function toggleTheme() {
     const next = theme === 'light' ? 'dark' : 'light';
@@ -221,6 +232,11 @@ export default function App() {
   const [pendingInviteToken, setPendingInviteToken] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get('invite'),
   );
+
+  // Apply the resolved theme to <html> on first render.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When the page loads with an invite link and the user is not logged in,
   // open the login modal automatically so they know what to do.

@@ -101,9 +101,12 @@ export default function ProductBrowser({
   const [products, setProducts] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(false);
     getAllProducts()
       .then((data) => {
         if (!cancelled) {
@@ -120,7 +123,7 @@ export default function ProductBrowser({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retryKey]);
 
   // Reset to first page when page size or columns change.
   function handlePageSize(size: PageSize) {
@@ -154,6 +157,14 @@ export default function ProductBrowser({
     return (
       <div className="empty-state">
         <p>No se pudieron cargar los productos.</p>
+        <p className="empty-state__hint">Comprueba tu conexión e inténtalo de nuevo.</p>
+        <button
+          className="btn btn--primary"
+          onClick={() => setRetryKey((k) => k + 1)}
+          style={{ marginTop: '1rem' }}
+        >
+          Reintentar
+        </button>
       </div>
     );
   }
@@ -161,7 +172,8 @@ export default function ProductBrowser({
   if (products.length === 0) {
     return (
       <div className="empty-state">
-        <p>No hay productos en el catálogo.</p>
+        <p>Todavía no hay productos en el catálogo.</p>
+        <p className="empty-state__hint">Sube un ticket de Mercadona para empezar a registrar precios.</p>
       </div>
     );
   }

@@ -42,10 +42,10 @@ beforeEach(() => {
 });
 
 describe('ProductDetail', () => {
-  it('shows "Cargando producto..." while loading', () => {
+  it('shows a loading skeleton while fetching the product', () => {
     vi.mocked(productsApi.getProduct).mockReturnValue(new Promise(() => {}));
     render(<ProductDetail productId="1" onBack={vi.fn()} />);
-    expect(screen.getByText('Cargando producto...')).toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   });
 
   it('shows the product name after loading', async () => {

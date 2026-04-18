@@ -167,8 +167,8 @@ body {
 .app-content {
   flex: 1;
   overflow-y: auto;
-  /* Safari: permite scroll en el área interna */
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding-bottom: max(1rem, var(--safe-bottom));
 }
 
@@ -187,6 +187,7 @@ body {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .search-container {
@@ -538,6 +539,11 @@ body {
   background: var(--color-surface-hover);
 }
 
+.browser-product-card:active {
+  transform: scale(0.97);
+  box-shadow: var(--shadow-sm);
+}
+
 .browser-product-card:focus-visible {
   outline: 3px solid var(--color-primary);
   outline-offset: 2px;
@@ -760,6 +766,12 @@ body {
   width: 28px;
   height: 28px;
   padding: 0;
+  /* Expand touch area to 44×44px without changing visual footprint */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
   border: none;
   border-radius: var(--radius-full);
   background: rgba(255, 255, 255, 0.92);
@@ -1748,15 +1760,20 @@ body {
 }
 
 .analytics__breakdown-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
   font-size: 0.85rem;
-  padding: 0.1rem 0.3rem;
   border-radius: var(--radius-sm);
   line-height: 1;
   transition: background 0.15s ease;
+  flex-shrink: 0;
 }
 
 .analytics__breakdown-close:hover {
@@ -1794,7 +1811,7 @@ body {
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast);
   white-space: nowrap;
-  min-height: 28px;
+  min-height: 44px;
 }
 
 .analytics__period-btn:hover {
@@ -2549,8 +2566,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--color-surface);
