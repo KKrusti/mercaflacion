@@ -152,9 +152,10 @@ describe('ProductDetail', () => {
     });
     render(<ProductDetail productId="1" onBack={vi.fn()} />);
     await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
-    await waitFor(() =>
-      expect(document.querySelector('.detail-header__ipc-value')).toHaveTextContent('+2,5%'),
-    );
+    await waitFor(() => {
+      const ipcStat = screen.getByText(/IPC Catalunya/).closest('.detail-stat');
+      expect(ipcStat?.querySelector('.detail-stat__value')).toHaveTextContent('+2,5%');
+    });
   });
 
   it('does not show the IPC block when accumulated_rate is 0', async () => {
@@ -174,7 +175,8 @@ describe('ProductDetail', () => {
     render(<ProductDetail productId="1" onBack={vi.fn()} />);
     await waitFor(() => screen.getByText('LECHE ENTERA HACENDADO 1L'));
     // max is 0.89 (the second record)
-    expect(document.querySelector('.detail-header__max-price-value')).toHaveTextContent('0,89 €');
+    const maxStat = screen.getByText('Precio máximo').closest('.detail-stat');
+    expect(maxStat?.querySelector('.detail-stat__value')).toHaveTextContent('0,89 €');
   });
 
   it('does not show the max price block when there is only one price record', async () => {
