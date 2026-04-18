@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ type Store interface {
 	MarkFileProcessed(userID int64, filename string, importedAt time.Time) error
 	GetMostPurchased(userID int64, limit int) ([]models.MostPurchasedProduct, error)
 	GetBiggestPriceIncreases(userID int64, limit int) ([]models.PriceIncreaseProduct, error)
+	GetBasketInflation(userID int64) ([]models.BasketInflationPoint, error)
 
 	RevokeToken(jti string, expiresAt time.Time) error
 	IsTokenRevoked(jti string) (bool, error)
@@ -595,6 +597,98 @@ func (s *PostgresStore) GetBiggestPriceIncreases(userID int64, limit int) ([]mod
 	}
 	if results == nil {
 		results = []models.PriceIncreaseProduct{}
+	}
+	return results, nil
+}
+
+// GetBasketInflation returns a per-ticket weighted inflation time series including
+// per-product breakdown. The query returns one row per (date, product); Go then
+// groups rows by date and computes the value-weighted basket index.
+func (s *PostgresStore) GetBasketInflation(userID int64) ([]models.BasketInflationPoint, error) {
+	ids, err := s.householdUserIDs(userID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve household: %w", err)
+	}
+	clause, baseArgs, _ := userIDsInClause(ids, 1)
+
+	q := `
+		WITH first_prices AS (
+			SELECT DISTINCT ON (product_id) product_id, price AS first_price
+			FROM price_records
+			WHERE ` + clause + `
+			ORDER BY product_id ASC, date ASC
+		)
+		SELECT
+			pr.date,
+			p.id          AS product_id,
+			p.name        AS product_name,
+			COALESCE(p.image_url, '') AS image_url,
+			fp.first_price,
+			pr.price      AS current_price
+		FROM price_records pr
+		JOIN first_prices fp ON fp.product_id = pr.product_id
+		JOIN products p ON p.id = pr.product_id
+		WHERE pr.` + clause + `
+		ORDER BY pr.date ASC, pr.price DESC`
+
+	rows, err := s.db.Query(q, baseArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("get basket inflation: %w", err)
+	}
+	defer rows.Close()
+
+	// Group per-product rows by date, then compute the weighted basket index.
+	type entry struct {
+		date, productID, productName, imageURL string
+		firstPrice, currentPrice               float64
+	}
+	var byDate []string // ordered slice of dates
+	grouped := make(map[string][]entry)
+	for rows.Next() {
+		var e entry
+		if err := rows.Scan(&e.date, &e.productID, &e.productName, &e.imageURL, &e.firstPrice, &e.currentPrice); err != nil {
+			return nil, fmt.Errorf("scan basket inflation row: %w", err)
+		}
+		if _, seen := grouped[e.date]; !seen {
+			byDate = append(byDate, e.date)
+		}
+		grouped[e.date] = append(grouped[e.date], e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate basket inflation: %w", err)
+	}
+
+	results := make([]models.BasketInflationPoint, 0, len(byDate))
+	for _, date := range byDate {
+		entries := grouped[date]
+		var sumCurrent, sumFirst float64
+		products := make([]models.BasketProductInflation, 0, len(entries))
+		for _, e := range entries {
+			sumCurrent += e.currentPrice
+			sumFirst += e.firstPrice
+			var pct float64
+			if e.firstPrice > 0 {
+				pct = math.Round((e.currentPrice-e.firstPrice)/e.firstPrice*10000) / 100
+			}
+			products = append(products, models.BasketProductInflation{
+				ProductID:        e.productID,
+				ProductName:      e.productName,
+				ImageURL:         e.imageURL,
+				FirstPrice:       e.firstPrice,
+				CurrentPrice:     e.currentPrice,
+				InflationPercent: pct,
+			})
+		}
+		var basketPct float64
+		if sumFirst > 0 {
+			basketPct = math.Round((sumCurrent-sumFirst)/sumFirst*10000) / 100
+		}
+		results = append(results, models.BasketInflationPoint{
+			Date:             date,
+			InflationPercent: basketPct,
+			ProductsCount:    len(entries),
+			Products:         products,
+		})
 	}
 	return results, nil
 }

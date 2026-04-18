@@ -1604,6 +1604,40 @@ body {
   background: var(--color-bg-alt);
 }
 
+.analytics__section-header--toggle {
+  width: 100%;
+  cursor: pointer;
+  background: var(--color-bg-alt);
+  border: none;
+  border-bottom: 1.5px solid var(--color-border);
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.analytics__section-header--toggle:hover {
+  background: var(--color-border);
+}
+
+.analytics__section-header--toggle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Accordion body — grid trick for smooth height animation */
+.analytics__section-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.analytics__section-body--open {
+  grid-template-rows: 1fr;
+}
+
+.analytics__section-body > div {
+  overflow: hidden;
+}
+
 .analytics__section-icon {
   display: flex;
   align-items: center;
@@ -1619,6 +1653,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin: 0;
+  flex: 1;
 }
 
 .analytics__list {
@@ -1657,6 +1692,184 @@ body {
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-lg);
+}
+
+.analytics__inflation-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem 0;
+}
+
+.analytics__inflation-label {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.analytics__inflation-badge {
+  font-family: 'Rubik', sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+
+.analytics__inflation-badge--up {
+  color: var(--color-danger);
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.analytics__inflation-badge--down {
+  color: var(--color-success);
+  background: rgba(22, 163, 74, 0.08);
+}
+
+/* Per-product breakdown panel */
+.analytics__breakdown {
+  border-top: 1.5px solid var(--color-border);
+  background: var(--color-bg-alt);
+}
+
+.analytics__breakdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.analytics__breakdown-title {
+  font-family: 'Rubik', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.analytics__breakdown-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.analytics__breakdown-close:hover {
+  background: var(--color-border);
+}
+
+/* Inflation section header: summary badge + period selector in one row */
+.analytics__inflation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 0;
+}
+
+/* Segmented control for period selection */
+.analytics__period-selector {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 0.2rem;
+}
+
+.analytics__period-btn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+  min-height: 28px;
+}
+
+.analytics__period-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.analytics__period-btn--active {
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Ticket list inside breakdown panel */
+.analytics__ticket-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.analytics__ticket-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.analytics__ticket-row:hover {
+  background: var(--color-surface-hover);
+}
+
+.analytics__ticket-row--open {
+  background: var(--color-bg-alt);
+}
+
+.analytics__ticket-row:last-child {
+  border-bottom: none;
+}
+
+.analytics__ticket-date {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  min-width: 5.5rem;
+}
+
+.analytics__ticket-count {
+  font-size: 0.78rem;
+  color: var(--color-text-subtle);
+  margin-left: auto;
+  margin-right: 0.25rem;
+}
+
+/* Nested product list inside expanded ticket */
+.analytics__ticket-products {
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Badge variants for product breakdown */
+.analytics-row__badge--decrease {
+  background: rgba(22, 163, 74, 0.12);
+  color: var(--color-success);
+}
+
+.analytics-row__badge--flat {
+  background: var(--color-border);
+  color: var(--color-text-muted);
 }
 
 /* Analytics row */

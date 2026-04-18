@@ -58,9 +58,26 @@ export interface PriceIncreaseProduct {
   increasePercent: number;
 }
 
+export interface BasketProductInflation {
+  productId: string;
+  productName: string;
+  imageUrl?: string;
+  firstPrice: number;
+  currentPrice: number;
+  inflationPercent: number;
+}
+
+export interface BasketInflationPoint {
+  date: string;
+  inflationPercent: number;
+  productsCount: number;
+  products: BasketProductInflation[];
+}
+
 export interface AnalyticsResult {
   mostPurchased: MostPurchasedProduct[];
   biggestIncreases: PriceIncreaseProduct[];
+  basketInflation: BasketInflationPoint[];
 }
 
 export interface User {

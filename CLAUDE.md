@@ -19,6 +19,23 @@ Before writing any code, **read** the corresponding SKILL.md file and **print th
 
 **This is mandatory and non-negotiable.** The user explicitly requires seeing `[skill: <name>]` printed in the response to verify correct skill usage.
 
+### How to apply `ui-ux-pro-max` correctly
+
+Reading the SKILL.md and printing `[skill: ui-ux-pro-max]` is **not enough**. The skill must be actively used:
+
+1. **Run the design-system search** before designing any new component or layout:
+   ```bash
+   python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<component_type> <context>" --design-system
+   ```
+2. **Run domain searches** for specific needs (charts, UX patterns, accessibility):
+   ```bash
+   python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain chart
+   python3 .claude/skills/ui-ux-pro-max/scripts/search.py "<keyword>" --domain ux
+   ```
+3. **Apply the output** — use the recommended patterns, component structure, and interaction model from the script results, not default intuition.
+
+Declaring the skill without running the script produces worse results. The user will notice.
+
 ## Environment Variables
 
 Required locally (put in `.env`):

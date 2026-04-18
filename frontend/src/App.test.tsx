@@ -45,6 +45,7 @@ beforeEach(() => {
   vi.mocked(productsApi.getAnalytics).mockResolvedValue({
     mostPurchased: [],
     biggestIncreases: [],
+    basketInflation: [],
   });
   vi.mocked(productsApi.getAccumulatedIPC).mockResolvedValue({
     from_year: 2025,

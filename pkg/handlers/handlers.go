@@ -552,8 +552,9 @@ type ticketResponse struct {
 }
 
 type analyticsResponse struct {
-	MostPurchased    []models.MostPurchasedProduct `json:"mostPurchased"`
-	BiggestIncreases []models.PriceIncreaseProduct `json:"biggestIncreases"`
+	MostPurchased    []models.MostPurchasedProduct  `json:"mostPurchased"`
+	BiggestIncreases []models.PriceIncreaseProduct  `json:"biggestIncreases"`
+	BasketInflation  []models.BasketInflationPoint  `json:"basketInflation"`
 }
 
 func (h *Handlers) TicketHandler(w http.ResponseWriter, r *http.Request) {
@@ -651,10 +652,17 @@ func (h *Handlers) AnalyticsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	basketInflation, err := h.store.GetBasketInflation(userID)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(analyticsResponse{
 		MostPurchased:    mostPurchased,
 		BiggestIncreases: biggestIncreases,
+		BasketInflation:  basketInflation,
 	}); err != nil {
 		log.Printf("handlers: encode analytics response: %v", err)
 	}

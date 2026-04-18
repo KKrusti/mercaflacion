@@ -773,6 +773,154 @@ func TestGetBiggestPriceIncreases_FieldsPopulated(t *testing.T) {
 	}
 }
 
+// ---------- GetBasketInflation ----------
+
+func TestGetBasketInflation_EmptyDB_ReturnsEmptySlice(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	got, err := s.GetBasketInflation(uid)
+	if err != nil {
+		t.Fatalf("GetBasketInflation: %v", err)
+	}
+	if got == nil {
+		t.Error("want empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Errorf("want 0 results, got %d", len(got))
+	}
+}
+
+func TestGetBasketInflation_FirstPurchase_ZeroInflation(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	p := models.Product{
+		Name: "LECHE ENTERA",
+		PriceHistory: []models.PriceRecord{
+			{Date: date(2025, 1, 10), Price: 1.00, Store: "Mercadona"},
+		},
+	}
+	insertProductForUser(t, s, uid, p)
+	got, err := s.GetBasketInflation(uid)
+	if err != nil {
+		t.Fatalf("GetBasketInflation: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 point, got %d", len(got))
+	}
+	if got[0].InflationPercent != 0.0 {
+		t.Errorf("first purchase inflation: want 0.0, got %f", got[0].InflationPercent)
+	}
+	if len(got[0].Products) != 1 {
+		t.Fatalf("want 1 product in breakdown, got %d", len(got[0].Products))
+	}
+	if got[0].Products[0].InflationPercent != 0.0 {
+		t.Errorf("product inflation: want 0.0, got %f", got[0].Products[0].InflationPercent)
+	}
+}
+
+func TestGetBasketInflation_TwoTickets_ComputesInflation(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	// First ticket 2025-01-01: product at €1.00 (first_price = 1.00).
+	// Second ticket 2025-06-01: same product at €1.10 → inflation = +10%.
+	p := models.Product{
+		Name: "ACEITE OLIVA",
+		PriceHistory: []models.PriceRecord{
+			{Date: date(2025, 1, 1), Price: 1.00, Store: "Mercadona"},
+			{Date: date(2025, 6, 1), Price: 1.10, Store: "Mercadona"},
+		},
+	}
+	insertProductForUser(t, s, uid, p)
+	got, err := s.GetBasketInflation(uid)
+	if err != nil {
+		t.Fatalf("GetBasketInflation: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want 2 points, got %d", len(got))
+	}
+	if got[0].InflationPercent != 0.0 {
+		t.Errorf("first ticket inflation: want 0.0, got %f", got[0].InflationPercent)
+	}
+	if got[1].InflationPercent != 10.0 {
+		t.Errorf("second ticket inflation: want 10.0, got %f", got[1].InflationPercent)
+	}
+}
+
+func TestGetBasketInflation_WeightedByValue(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	// Two products on same ticket date. Expensive product doubles, cheap one stays flat.
+	// First ticket (baseline): aceite €10.00, sal €0.50 → basket_base = €10.50.
+	// Second ticket: aceite €20.00 (+100%), sal €0.50 (0%) → basket_current = €20.50.
+	// Expected inflation = (20.50 - 10.50) / 10.50 * 100 ≈ 95.24%.
+	aceite := models.Product{
+		Name: "ACEITE",
+		PriceHistory: []models.PriceRecord{
+			{Date: date(2025, 1, 1), Price: 10.00, Store: "Mercadona"},
+			{Date: date(2025, 6, 1), Price: 20.00, Store: "Mercadona"},
+		},
+	}
+	sal := models.Product{
+		Name: "SAL FINA",
+		PriceHistory: []models.PriceRecord{
+			{Date: date(2025, 1, 1), Price: 0.50, Store: "Mercadona"},
+			{Date: date(2025, 6, 1), Price: 0.50, Store: "Mercadona"},
+		},
+	}
+	insertProductForUser(t, s, uid, aceite)
+	insertProductForUser(t, s, uid, sal)
+	got, err := s.GetBasketInflation(uid)
+	if err != nil {
+		t.Fatalf("GetBasketInflation: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want 2 points, got %d", len(got))
+	}
+	want := 95.24
+	if got[1].InflationPercent < want-0.1 || got[1].InflationPercent > want+0.1 {
+		t.Errorf("second ticket inflation: want ≈%.2f, got %.2f", want, got[1].InflationPercent)
+	}
+	if got[1].ProductsCount != 2 {
+		t.Errorf("products_count: want 2, got %d", got[1].ProductsCount)
+	}
+	if len(got[1].Products) != 2 {
+		t.Fatalf("want 2 products in breakdown, got %d", len(got[1].Products))
+	}
+	// Products are sorted by price DESC: aceite (€20) first, sal (€0.50) second.
+	if got[1].Products[0].ProductName != "ACEITE" {
+		t.Errorf("first product: want ACEITE, got %q", got[1].Products[0].ProductName)
+	}
+	if got[1].Products[0].InflationPercent != 100.0 {
+		t.Errorf("aceite inflation: want 100.0, got %f", got[1].Products[0].InflationPercent)
+	}
+	if got[1].Products[1].InflationPercent != 0.0 {
+		t.Errorf("sal inflation: want 0.0, got %f", got[1].Products[1].InflationPercent)
+	}
+}
+
+func TestGetBasketInflation_OrderedByDateAsc(t *testing.T) {
+	s := newTestStore(t)
+	uid := createTestUser(t, s)
+	p := models.Product{
+		Name: "YOGUR",
+		PriceHistory: []models.PriceRecord{
+			{Date: date(2025, 3, 1), Price: 0.40, Store: "Mercadona"},
+			{Date: date(2025, 1, 1), Price: 0.40, Store: "Mercadona"},
+			{Date: date(2025, 6, 1), Price: 0.45, Store: "Mercadona"},
+		},
+	}
+	insertProductForUser(t, s, uid, p)
+	got, err := s.GetBasketInflation(uid)
+	if err != nil {
+		t.Fatalf("GetBasketInflation: %v", err)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i].Date < got[i-1].Date {
+			t.Errorf("results not ordered by date: %s before %s", got[i].Date, got[i-1].Date)
+		}
+	}
+}
+
 // ---------- Household ----------
 
 func createNamedUser(t *testing.T, s *store.PostgresStore, username string) int64 {

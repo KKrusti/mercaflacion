@@ -345,6 +345,10 @@ describe('getAnalytics', () => {
     biggestIncreases: [
       { id: 'aceite-oliva', name: 'ACEITE OLIVA', increasePercent: 42.5, firstPrice: 4.0, currentPrice: 5.7 },
     ],
+    basketInflation: [
+      { date: '2024-01-01', inflationPercent: 0.0, productsCount: 5, products: [] },
+      { date: '2024-06-01', inflationPercent: 4.2, productsCount: 6, products: [] },
+    ],
   };
 
   it('returns analytics data when the response is OK', async () => {

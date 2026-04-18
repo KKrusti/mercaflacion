@@ -72,10 +72,31 @@ type PriceIncreaseProduct struct {
 	IncreasePercent float64 `json:"increasePercent"`
 }
 
+// BasketProductInflation is the per-product contribution inside a basket audit.
+type BasketProductInflation struct {
+	ProductID        string  `json:"productId"`
+	ProductName      string  `json:"productName"`
+	ImageURL         string  `json:"imageUrl,omitempty"`
+	FirstPrice       float64 `json:"firstPrice"`
+	CurrentPrice     float64 `json:"currentPrice"`
+	InflationPercent float64 `json:"inflationPercent"`
+}
+
+// BasketInflationPoint represents the weighted price inflation for a single ticket.
+// InflationPercent = (sum_paid - sum_first_price) / sum_first_price * 100.
+// Products appearing for the first time contribute 0% (their first price equals current).
+type BasketInflationPoint struct {
+	Date             string                   `json:"date"`
+	InflationPercent float64                  `json:"inflationPercent"`
+	ProductsCount    int                      `json:"productsCount"`
+	Products         []BasketProductInflation `json:"products"`
+}
+
 // AnalyticsResult is the top-level response body for GET /api/analytics.
 type AnalyticsResult struct {
 	MostPurchased    []MostPurchasedProduct `json:"mostPurchased"`
 	BiggestIncreases []PriceIncreaseProduct `json:"biggestIncreases"`
+	BasketInflation  []BasketInflationPoint `json:"basketInflation"`
 }
 
 // IPCResult is the response body for GET /api/ipc?from=<year>.
