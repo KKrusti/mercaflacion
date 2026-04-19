@@ -79,16 +79,18 @@ func (il *IPLimiter) cleanupLoop() {
 	}
 }
 
-// remoteIP returns the real client IP. Behind Vercel's edge proxy the true
-// client address is in X-Forwarded-For; r.RemoteAddr is the edge node IP.
-// X-Forwarded-For may be "client, proxy1, proxy2" — the leftmost value is
-// the original client. Falls back to r.RemoteAddr for direct connections.
+// remoteIP returns the real client IP. Behind Vercel's edge proxy the trusted
+// client IP is in X-Real-Ip (injected by Vercel and not forwarded from the
+// client). If that header is absent (direct connections, local dev), we take
+// the rightmost value of X-Forwarded-For — the one appended by the nearest
+// trusted proxy — to prevent spoofing via attacker-controlled leftmost values.
 func remoteIP(r *http.Request) string {
+	if realIP := r.Header.Get("X-Real-Ip"); realIP != "" {
+		return strings.TrimSpace(realIP)
+	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if idx := strings.Index(xff, ","); idx != -1 {
-			return strings.TrimSpace(xff[:idx])
-		}
-		return strings.TrimSpace(xff)
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[len(parts)-1])
 	}
 	addr := r.RemoteAddr
 	if idx := strings.LastIndex(addr, ":"); idx != -1 {

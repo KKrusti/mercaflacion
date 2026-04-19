@@ -322,6 +322,16 @@ func (h *Handlers) ChangePasswordHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Revoke the current token so the session that performed the change
+	// (and any attacker holding the same token) cannot be reused.
+	if tokenStr := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "); tokenStr != "" {
+		if _, _, jti, exp, err := auth.ValidateToken(tokenStr); err == nil && jti != "" {
+			if rErr := h.store.RevokeToken(jti, exp); rErr != nil {
+				log.Printf("handlers: revoke token after password change for user %d: %v", userID, rErr)
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
 		log.Printf("handlers: encode change password response: %v", err)

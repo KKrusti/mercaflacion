@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -156,21 +157,23 @@ func (h *Handlers) CronEmailPollHandler(poller EmailPoller) http.HandlerFunc {
 		}
 
 		secret := os.Getenv("CRON_SECRET")
-		if secret != "" {
-			provided := r.Header.Get("X-Cron-Secret")
-			if provided == "" {
-				provided = r.URL.Query().Get("cron_secret")
+		if secret == "" {
+			http.Error(w, "Forbidden: CRON_SECRET not configured", http.StatusForbidden)
+			return
+		}
+		provided := r.Header.Get("X-Cron-Secret")
+		if provided == "" {
+			provided = r.URL.Query().Get("cron_secret")
+		}
+		// Vercel Cron Jobs inject the secret as "Authorization: Bearer <CRON_SECRET>"
+		if provided == "" {
+			if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
+				provided = strings.TrimPrefix(auth, "Bearer ")
 			}
-			// Vercel Cron Jobs inject the secret as "Authorization: Bearer <CRON_SECRET>"
-			if provided == "" {
-				if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
-					provided = strings.TrimPrefix(auth, "Bearer ")
-				}
-			}
-			if !strings.EqualFold(provided, secret) {
-				http.Error(w, "Forbidden", http.StatusForbidden)
-				return
-			}
+		}
+		if subtle.ConstantTimeCompare([]byte(provided), []byte(secret)) != 1 {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
 		}
 
 		poller.PollAll(r.Context())
